@@ -1,0 +1,24 @@
+RELATÓRIO DE TRIAGEM VIRTUAL (modelo de brinquedo, sem validade biológica)
+Ambiente de dobramento: Meio alcalino (pH ~9)
+Proteínas geradas: 1 | comprimento: 30 resíduos
+Pool de aminoácidos: ALA, ARG, ASN, ASP, CYS, GLN, GLU, GLY, HIS, ILE, LEU, LYS, MET, PHE, PRO, SER, THR, TRP, TYR, VAL
+Ligantes reais incluídos: Paracetamol, Ibuprofeno, Cafeina, Cloroquina
+
+- Proteina_1(30aa)  |  30 resíduos  |  massa~3651.2 Da  |  carga liq=-0.90  |  11 hidrofóbicos / 19 hidrofílicos
+
+Ranking (melhor primeiro):
+  Proteina_1(30aa) x Bacteria-Ficticia-Beta: score=100.0/100 (energia=-8.1198)
+  Cloroquina x Bacteria-Ficticia-Beta: score=92.9/100 (energia=-4.1329)
+  Proteina_1(30aa) x Bacteria-Ficticia-Gama: score=85.7/100 (energia=-3.6275)
+  Cloroquina x Bacteria-Ficticia-Gama: score=78.6/100 (energia=-2.4672)
+  Ibuprofeno x Bacteria-Ficticia-Beta: score=71.4/100 (energia=-2.3064)
+  Paracetamol x Bacteria-Ficticia-Beta: score=64.3/100 (energia=-2.1686)
+  Cafeina x Bacteria-Ficticia-Beta: score=57.1/100 (energia=-1.9085)
+  Ibuprofeno x Bacteria-Ficticia-Gama: score=50.0/100 (energia=-1.8118)
+  Paracetamol x Bacteria-Ficticia-Gama: score=42.9/100 (energia=-1.3557)
+  Cafeina x Bacteria-Ficticia-Gama: score=35.7/100 (energia=-1.151)
+  Cafeina x Bacteria-Ficticia-Alfa: score=28.6/100 (energia=0.1049)
+  Proteina_1(30aa) x Bacteria-Ficticia-Alfa: score=21.4/100 (energia=0.1321)
+  Paracetamol x Bacteria-Ficticia-Alfa: score=14.3/100 (energia=0.1677)
+  Ibuprofeno x Bacteria-Ficticia-Alfa: score=7.1/100 (energia=0.1757)
+  Cloroquina x Bacteria-Ficticia-Alfa: score=0.0/100 (energia=0.227)

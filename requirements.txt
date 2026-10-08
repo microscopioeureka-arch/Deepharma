@@ -1,0 +1,17 @@
+# ── Obrigatórias — sem elas o site nem abre ──────────────────────────
+fastapi
+uvicorn[standard]
+pydantic
+numpy
+scipy
+torch
+trimesh
+
+# ── Opcionais — o simulador funciona sem elas, mas perde recursos ────
+requests          # busca de dados reais (NCBI / UniProt / Wikimedia)
+Pillow            # ajuste de cor por imagem real (Wikimedia Commons)
+matplotlib        # alguns gráficos/plots auxiliares
+pygltflib         # exportação dos modelos 3D em .glb
+rdkit             # cálculos mais precisos de propriedades dos fármacos
+python-multipart
+itsdangerous

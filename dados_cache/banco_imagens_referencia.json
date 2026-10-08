@@ -1,0 +1,47 @@
+{
+  "pseudomonas aeruginosa pa96": {
+    "cor_media": [
+      181.0,
+      181.0,
+      181.0
+    ],
+    "proporcao": 0.801,
+    "thumb_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d9/Scene_from_Miss_Helyett.png/330px-Scene_from_Miss_Helyett.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+    "fonte_url": "https://commons.wikimedia.org/wiki/File:Scene_from_Miss_Helyett.png",
+    "titulo": "File:Scene from Miss Helyett.png"
+  },
+  "v2:virus:monkeypox virus": {
+    "tipo": "virus",
+    "termo_consultado": "Monkeypox virus",
+    "cor_media": [
+      45.5,
+      66.5,
+      106.4
+    ],
+    "proporcao": 1.292,
+    "forma_sugerida": null,
+    "thumb_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6f/Colorized_transmission_electron_micrograph_of_mpox_virus_particles_%28red%29_found_within_VERO_E6_cells_-_11.jpg/500px-Colorized_transmission_electron_micrograph_of_mpox_virus_particles_%28red%29_found_within_VERO_E6_cells_-_11.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+    "fonte_url": "https://commons.wikimedia.org/wiki/Colorized_transmission_electron_micrograph_of_mpox_virus_particles_(red)_found_within_VERO_E6_cells_-_11.jpg",
+    "titulo": "Colorized transmission electron micrograph of mpox virus particles (red) found within VERO E6 cells - 11.jpg",
+    "autor": "NIAID",
+    "licenca": "CC BY 2.0",
+    "consulta": "\"Monkeypox virus\" virus micrograph"
+  },
+  "v2:bacteria:escherichia coli": {
+    "tipo": "bacteria",
+    "termo_consultado": "Escherichia coli",
+    "cor_media": [
+      66.5,
+      66.5,
+      66.5
+    ],
+    "proporcao": 1.471,
+    "forma_sugerida": null,
+    "thumb_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0a/Ecoli_dividing.jpg/500px-Ecoli_dividing.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+    "fonte_url": "https://commons.wikimedia.org/wiki/Ecoli_dividing.jpg",
+    "titulo": "Ecoli dividing.jpg",
+    "autor": "CDC/ Evangeline Sowers, Janice Haney Carr€",
+    "licenca": "Public domain",
+    "consulta": "\"Escherichia coli\" bacteria micrograph"
+  }
+}

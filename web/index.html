@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Simulador Molecular</title>
+<link rel="stylesheet" href="style.css" />
+<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+</head>
+<body>
+
+  <!-- ===== PAINEL FIXO: visualizador 3D + status ===== -->
+  <aside id="painel-fixo">
+    <h1>🧬 Simulador Molecular</h1>
+    <a id="btn-sair" href="/logout">Sair</a>
+    <div id="visor-container">
+      <model-viewer id="visor-3d" camera-controls auto-rotate
+        shadow-intensity="1" exposure="1" style="width:100%;height:100%;">
+      </model-viewer>
+      <p id="visor-legenda">Gere uma simulação para ver o modelo 3D aqui.</p>
+    </div>
+    <div id="legenda-cores">
+      <span class="legenda-item"><span class="dot dot-hb"></span> Hidrofóbico</span>
+      <span class="legenda-item"><span class="dot dot-hf"></span> Hidrofílico</span>
+      <span class="legenda-item"><span class="dot dot-mut"></span> Mutado</span>
+    </div>
+    <div id="status-box">
+      <div id="status-texto">Aguardando...</div>
+      <div id="status-log"></div>
+    </div>
+  </aside>
+
+  <!-- ===== PAINEL ROLÁVEL: controles + resultados ===== -->
+  <main id="painel-scroll">
+
+    <!-- ── PROTEÍNA ── -->
+    <section class="cartao">
+      <h2>🔬 Criar proteína</h2>
+      <p class="ajuda">O simulador gera a sequência de aminoácidos, dobra a cadeia usando
+      forças físicas (eletrostática, hidrofóbica, Van der Waals) e exibe o modelo 3D.
+      <b>Vermelho</b> = resíduo hidrofóbico · <b>Verde</b> = hidrofílico.</p>
+
+      <div class="grade-2col">
+        <div class="campo">
+          <label>Comprimento (nº de aminoácidos)</label>
+          <input type="number" id="comprimento-proteina" min="5" max="80" value="30" />
+        </div>
+        <div class="campo">
+          <label>Quantas proteínas gerar</label>
+          <input type="number" id="n-proteinas" min="1" max="5" value="1" />
+        </div>
+      </div>
+
+      <!-- Modo composição exata -->
+      <label class="linha-checkbox" style="margin-top:8px;">
+        <input type="checkbox" id="usar-composicao-fixa" />
+        Definir quantos de cada aminoácido (composição exata)
+      </label>
+      <div id="bloco-composicao" style="display:none;">
+        <p class="ajuda">Escolha os aminoácidos e a quantidade de cada um.
+        A ordem na cadeia é decidida pela física de dobramento.</p>
+        <div class="bloco-busca-real">
+          <input type="text" id="busca-proteina-termo" placeholder="ex.: human insulin, lysozyme, spike protein..." />
+          <button class="btn-sec" id="btn-buscar-proteina">🌐 Buscar proteína real (UniProt)</button>
+        </div>
+        <p id="busca-proteina-status" class="desc-preset"></p>
+        <div id="resultados-proteina" class="resultados-busca" style="display:none;"></div>
+        <div id="lista-composicao" class="grade-composicao">Carregando...</div>
+      </div>
+
+      <!-- Modo pool restrito -->
+      <label class="linha-checkbox" style="margin-top:4px;">
+        <input type="checkbox" id="usar-pool" />
+        Restringir a tipos específicos de aminoácidos (deixar em branco = usar todos os 20)
+      </label>
+      <div id="bloco-pool" style="display:none;">
+        <p class="ajuda">A proteína será gerada usando apenas os aminoácidos marcados abaixo.</p>
+        <div id="lista-pool" class="grade-checkbox">Carregando...</div>
+      </div>
+    </section>
+
+    <!-- ── AMBIENTE ── -->
+    <section class="cartao">
+      <h2>🌡️ Ambiente de dobramento</h2>
+      <p class="ajuda">O ambiente altera os pesos das forças físicas — por exemplo,
+      a membrana lipídica favorece resíduos hidrofóbicos no núcleo da proteína.</p>
+      <select id="select-ambiente"><option>Carregando...</option></select>
+    </section>
+
+    <!-- ── CRITÉRIO ENERGÉTICO + RESPOSTA ── -->
+    <section class="cartao">
+      <h2>⚡ Critério energético e tipo de resposta</h2>
+      <label class="linha-checkbox">
+        <input type="checkbox" id="usar-limite-energetico" />
+        Exigir limite energético para aceitar a formação da proteína
+      </label>
+      <div class="grade-2col" style="margin-top:8px;">
+        <div class="campo">
+          <label for="limite-energetico">Energia máxima aceita</label>
+          <input type="number" id="limite-energetico" min="-1000" max="1000" step="0.1" value="0" disabled />
+        </div>
+        <div class="campo">
+          <label for="tipo-resposta">Resposta contra o alvo</label>
+          <select id="tipo-resposta">
+            <option value="nenhuma">Carregando...</option>
+          </select>
+        </div>
+      </div>
+      <p id="descricao-resposta" class="desc-preset"></p>
+      <p class="ajuda">
+        Quanto menor a energia, melhor o candidato no modelo. Se o limite estiver ativo,
+        o simulador tenta várias proteínas e escolhe a de menor energia que atingir o corte.
+        A estratégia selecionada vale para vírus e bactérias: “capsômero” é interpretado
+        como estrutura/proteína de superfície quando o alvo for bacteriano. Sem marcar
+        compostos reais, a resposta usa a proteína gerada como candidato do docking;
+        com compostos reais, eles também entram no ranking.
+        <b>Resultado educacional e ilustrativo, sem validade terapêutica.</b>
+      </p>
+    </section>
+
+    <!-- ── ALVOS ── -->
+    <section class="cartao">
+      <h2>🦠 Alvos para docking (opcional)</h2>
+      <p class="ajuda">A simulação testa se a sua proteína consegue se encaixar
+      (docking) no receptor de superfície do vírus ou da bactéria.</p>
+
+      <label class="linha-checkbox">
+        <input type="checkbox" id="gerar-virus" checked />
+        Gerar 5 vírus fictícios e simular o encaixe
+      </label>
+
+      <!-- Vírus real por preset -->
+      <div id="bloco-preset-virus" style="margin:8px 0 0 22px;">
+        <label class="label-campo">Adicionar vírus real:</label>
+        <select id="select-virus-preset">
+          <option value="">— nenhum —</option>
+        </select>
+        <p id="fonte-preset" class="desc-preset"></p>
+      </div>
+
+      <!-- Vírus genoma próprio -->
+      <label class="linha-checkbox" style="margin-top:8px;">
+        <input type="checkbox" id="ativar-virus-customizado" />
+        Criar vírus com genoma personalizado (RNA/DNA digitado por você)
+      </label>
+      <div id="bloco-virus-customizado" style="display:none;margin-left:22px;">
+        <div class="grade-2col" style="margin-top:6px;">
+          <div class="campo">
+            <label>Nome do vírus</label>
+            <input type="text" id="vc-nome" value="Meu-Virus" />
+          </div>
+          <div class="campo">
+            <label>Tipo</label>
+            <select id="vc-tipo">
+              <option value="RNA">RNA (A U G C)</option>
+              <option value="DNA">DNA (A T G C)</option>
+            </select>
+          </div>
+        </div>
+        <textarea id="vc-sequencia" rows="3" style="width:100%;margin-top:6px;"
+          placeholder="ex.: AUGCAUGCAUGCAUGC... (mín. 3 bases)"></textarea>
+        <div class="bloco-busca-real">
+          <input type="text" id="busca-virus-termo" placeholder="ex.: monkeypox virus, E. coli plasmid, NC_045512.2..." />
+          <button class="btn-sec" id="btn-buscar-virus">🌐 Buscar sequência real (NCBI)</button>
+        </div>
+        <p id="busca-virus-status" class="desc-preset"></p>
+        <div id="resultados-virus" class="resultados-busca" style="display:none;"></div>
+        <div class="bloco-salvar">
+          <button class="btn-sec" id="btn-salvar-seq">💾 Salvar sequência</button>
+          <button class="btn-sec" id="btn-ver-salvas">📂 Minhas sequências</button>
+        </div>
+        <div id="sequencias-salvas" style="display:none;"></div>
+      </div>
+
+      <div class="separador"></div>
+
+      <label class="linha-checkbox">
+        <input type="checkbox" id="gerar-bacterias" />
+        Gerar bactérias fictícias e incluir no docking
+      </label>
+      <div id="campo-n-bacterias" style="display:none;margin-left:22px;">
+        <label class="label-campo">Quantas bactérias (cada uma gerada com forma, tamanho e flagelos diferentes)</label>
+        <input type="number" id="n-bacterias" min="1" max="6" value="3" style="width:70px;" />
+
+        <label class="linha-checkbox" style="margin-top:10px;">
+          <input type="checkbox" id="ativar-bact-customizada" />
+          Usar genoma real (DNA) na 1ª bactéria (RNA/DNA digitado por você)
+        </label>
+        <div id="bloco-bact-customizada" style="display:none;">
+          <div class="grade-2col" style="margin-top:6px;">
+            <div class="campo">
+              <label>Tipo</label>
+              <select id="bc-tipo">
+                <option value="DNA">DNA (A T G C)</option>
+                <option value="RNA">RNA (A U G C)</option>
+              </select>
+            </div>
+          </div>
+          <textarea id="bc-sequencia" rows="3" style="width:100%;margin-top:6px;"
+            placeholder="ex.: ATGCATGCATGCATGC... (mín. 3 bases)"></textarea>
+          <div class="bloco-busca-real">
+            <input type="text" id="busca-bacteria-termo" placeholder="ex.: Escherichia coli, Staphylococcus aureus plasmid..." />
+            <button class="btn-sec" id="btn-buscar-bacteria">🌐 Buscar genoma real (NCBI)</button>
+          </div>
+          <p id="busca-bacteria-status" class="desc-preset"></p>
+          <div id="resultados-bacteria" class="resultados-busca" style="display:none;"></div>
+        </div>
+      </div>
+
+      <div class="separador"></div>
+
+      <label class="linha-checkbox">
+        <input type="checkbox" id="prever-mutacao" />
+        🧬 Prever mutações no(s) vírus (variante mutante da espícula)
+      </label>
+      <p class="ajuda" style="margin-left:22px;">Sorteia mutações pontuais na proteína de
+      espícula de cada vírus, mostra ONDE elas caem no modelo 3D (destacado em amarelo) e
+      estima o impacto na ligação. Para o melhor encaixe do docking, também refaz a simulação
+      com a variante mutante pra comparar a força de ligação antes/depois.
+      <b>Modelo ilustrativo, sem validade biológica real.</b></p>
+      <div id="campo-n-mutacoes" style="display:none;margin-left:22px;">
+        <label class="label-campo">Quantas mutações simular (por vírus)</label>
+        <input type="number" id="n-mutacoes" min="1" max="10" value="3" style="width:70px;" />
+      </div>
+    </section>
+
+    <!-- ── FÁRMACOS ── -->
+    <section class="cartao">
+      <h2>💊 Testar fármacos no docking (opcional)</h2>
+      <p class="ajuda">A estratégia acima organiza a resposta didática. Para incluir ligantes
+      reais no ranking — especialmente em um coquetel — marque esta opção e selecione os
+      compostos abaixo. A lista não comprova que um composto trate um vírus ou bactéria.</p>
+      <label class="linha-checkbox">
+        <input type="checkbox" id="incluir-reais" />
+        Incluir compostos reais (fármacos) na triagem de docking
+      </label>
+      <div id="bloco-ligantes" style="display:none;margin-top:8px;">
+        <div id="lista-elementos" class="grade-checkbox">Carregando...</div>
+      </div>
+    </section>
+
+    <!-- ── OPÇÕES ── -->
+    <section class="cartao">
+      <h2>⚙️ Opções</h2>
+      <label class="linha-checkbox">
+        <input type="checkbox" id="modo-rapido" checked />
+        <span><b>Modo rápido</b> — simulação termina em segundos/poucos minutos (recomendado)</span>
+      </label>
+      <label class="linha-checkbox">
+        <input type="checkbox" id="usar-imagem-referencia" />
+        <span>🖼️ <b>Comparar e ajustar com referência científica</b>
+        (busca uma micrografia filtrada no Wikimedia Commons, rejeitando pinturas,
+        diagramas e ilustrações. Usa a cor, proporção e pistas de forma para ajustar
+        o modelo procedural e mostra a imagem escolhida nos resultados. Não reconstrói
+        uma estrutura 3D completa a partir de uma foto 2D). Funciona com vírus preset,
+        vírus selecionado no NCBI e bactéria selecionada no NCBI.</span>
+      </label>
+    </section>
+
+    <button id="btn-simular">▶ Rodar simulação</button>
+
+    <!-- ── RESULTADOS ── -->
+    <section class="cartao" id="secao-resultados" style="display:none;">
+      <h2>Resultados</h2>
+      <div id="lista-resposta"></div>
+      <div id="lista-proteinas"></div>
+      <div id="lista-virus"></div>
+      <div id="lista-bacterias"></div>
+      <div id="lista-docking"></div>
+      <div id="lista-mutacoes"></div>
+      <div id="ranking"></div>
+      <div id="links-arquivos"></div>
+    </section>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

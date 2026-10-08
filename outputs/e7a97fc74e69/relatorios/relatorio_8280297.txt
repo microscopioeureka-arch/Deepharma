@@ -1,0 +1,28 @@
+RELATÓRIO DE TRIAGEM VIRTUAL (modelo de brinquedo, sem validade biológica)
+Ambiente de dobramento: Citoplasma (aquoso, pH neutro)
+Proteínas geradas: 1 | comprimento: 30 resíduos
+Composição fixa: {'ALA': 1, 'ARG': 2, 'ASN': 2, 'ASP': 1, 'CYS': 1, 'GLN': 2, 'GLY': 1, 'LEU': 6, 'MET': 1, 'PHE': 3, 'PRO': 4, 'SER': 3, 'THR': 5, 'TYR': 3, 'VAL': 5}
+
+- Proteina_1(40aa)  |  40 resíduos  |  massa~4535.3 Da  |  carga liq=+1.00  |  17 hidrofóbicos / 23 hidrofílicos
+
+Ranking (melhor primeiro):
+  Proteina_1(40aa) x Virus-Ficticio-B: score=100.0/100 (energia=-11.8219)
+  Proteina_1(40aa) x Bacteria-Ficticia-Beta: score=87.5/100 (energia=-9.1634)
+  Proteina_1(40aa) x AB371720.1 Monkeypox virus D10L gene for hypothetical protein, complete cds, clone: Monkey: score=75.0/100 (energia=-5.8945)
+  Proteina_1(40aa) x Virus-Ficticio-E: score=62.5/100 (energia=-5.5297)
+  Proteina_1(40aa) x Virus-Ficticio-D: score=50.0/100 (energia=-4.8627)
+  Proteina_1(40aa) x Virus-Ficticio-A: score=37.5/100 (energia=-4.3277)
+  Proteina_1(40aa) x Bacteria-Ficticia-Gama: score=25.0/100 (energia=-3.7539)
+  Proteina_1(40aa) x Bacteria-Ficticia-Alfa: score=12.5/100 (energia=-0.2231)
+  Proteina_1(40aa) x Virus-Ficticio-C: score=0.0/100 (energia=0.0811)
+
+Previsão de mutações (modelo heurístico, sem validade biológica real):
+  Virus-Ficticio-A: K5Q, G6I, D9T -> impacto médio 42.9/100 (radical — alto risco estimado de escape/resistência)
+  Virus-Ficticio-B: H4P, C5V, I7K -> impacto médio 36.1/100 (moderada — pode alterar a afinidade de ligação)
+  Virus-Ficticio-C: P3A, H5I, Q6A -> impacto médio 34.7/100 (moderada — pode alterar a afinidade de ligação)
+  Virus-Ficticio-D: D6K, F9R, H14G -> impacto médio 61.0/100 (radical — alto risco estimado de escape/resistência)
+  Virus-Ficticio-E: T2D, C4H, K9T -> impacto médio 49.0/100 (radical — alto risco estimado de escape/resistência)
+  AB371720.1 Monkeypox virus D10L gene for hypothetical protein, complete cds, clone: Monkey: A1Y, A3K, K5V -> impacto médio 62.1/100 (radical — alto risco estimado de escape/resistência)
+
+Par vencedor re-docado com a variante mutante:
+  Proteina_1(40aa) x Virus-Ficticio-B (mutado): energia -11.8219 -> -9.0677 (Δ=+2.754) — ligação prevista MAIS FRACA no mutante (possível fuga/resistência)
