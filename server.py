@@ -17,7 +17,7 @@ import secrets
 
 from fastapi import FastAPI, HTTPException, Request, Form
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, PlainTextResponse, FileResponse
 from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel, Field
 
@@ -80,7 +80,8 @@ def pagina_login(erro=""):
     return LOGIN_HTML.replace("__ERRO__", erro)
 
 
-PUBLIC_PATHS = {"/login", "/healthz", "/favicon.ico"}
+# Homepage pública; o simulador e as APIs continuam protegidos por sessão.
+PUBLIC_PATHS = {"/", "/landing.css", "/landing.js", "/login", "/healthz", "/favicon.ico"}
 
 
 @app.middleware("http")
@@ -110,7 +111,7 @@ app.add_middleware(
 @app.get("/login", response_class=HTMLResponse)
 async def tela_login(request: Request):
     if request.session.get("logged_in"):
-        return RedirectResponse("/", status_code=303)
+        return RedirectResponse("/simulador", status_code=303)
     return HTMLResponse(pagina_login())
 
 
@@ -118,7 +119,7 @@ async def tela_login(request: Request):
 async def fazer_login(request: Request, senha: str = Form(...)):
     if secrets.compare_digest(senha, APP_PASSWORD):
         request.session["logged_in"] = True
-        return RedirectResponse("/", status_code=303)
+        return RedirectResponse("/simulador", status_code=303)
     return HTMLResponse(pagina_login("Senha incorreta."), status_code=401)
 
 
@@ -300,6 +301,11 @@ def simular(req: SimularRequest):
     with _lock:
         JOBS[job_id] = {"estado": "executando", "log": [], "resultado": None, "erro": None}
     config = req.model_dump() if hasattr(req, "model_dump") else req.dict()
+    # Deepharma agora trabalha apenas com alvos virais; campos antigos do
+    # frontend são ignorados para compatibilidade, sem executar geração bacteriana.
+    config["gerar_bacterias"] = False
+    config["n_bacterias"] = 0
+    config["bacteria_genoma_customizado"] = None
     t = threading.Thread(target=_rodar_job, args=(job_id, config), daemon=True)
     t.start()
     return {"job_id": job_id}
@@ -327,7 +333,7 @@ def _prefixar_urls(resultado: dict, job_id: str) -> dict:
     out["arquivos"] = {k: full(v) for k, v in resultado.get("arquivos", {}).items()}
     out["proteinas"] = [{**p, "glb": full(p.get("glb"))} for p in resultado.get("proteinas", [])]
     out["virus"] = [{**v, "glb": full(v.get("glb"))} for v in resultado.get("virus", [])]
-    out["bacterias"] = [{**b, "glb": full(b.get("glb"))} for b in resultado.get("bacterias", [])]
+    out["bacterias"] = []  # removido da interface e da execução pública
     out["docking"] = [{**d, "glb": full(d.get("glb"))} for d in resultado.get("docking", [])]
     out["mutacoes"] = [{**m, "glb": full(m.get("glb"))} for m in resultado.get("mutacoes", [])]
     mt = resultado.get("mutacao_top")
@@ -342,4 +348,32 @@ def _prefixar_urls(resultado: dict, job_id: str) -> dict:
 # como tudo está na mesma pasta, servimos a própria BASE_DIR.
 # O StaticFiles precisa ser montado por ÚLTIMO, senão ele "engole" as
 # rotas /api/... definidas acima.
-app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="frontend")
+# Homepage pública + simulador autenticado.
+@app.get("/", response_class=HTMLResponse)
+def homepage():
+    return FileResponse(os.path.join(WEB_DIR, "landing.html"), media_type="text/html")
+
+
+@app.get("/simulador", response_class=HTMLResponse)
+def pagina_simulador():
+    return FileResponse(os.path.join(WEB_DIR, "index.html"), media_type="text/html")
+
+
+@app.get("/style.css")
+def frontend_css():
+    return FileResponse(os.path.join(WEB_DIR, "style.css"), media_type="text/css")
+
+
+@app.get("/app.js")
+def frontend_js():
+    return FileResponse(os.path.join(WEB_DIR, "app.js"), media_type="application/javascript")
+
+
+@app.get("/landing.css")
+def homepage_css():
+    return FileResponse(os.path.join(WEB_DIR, "landing.css"), media_type="text/css")
+
+
+@app.get("/landing.js")
+def homepage_js():
+    return FileResponse(os.path.join(WEB_DIR, "landing.js"), media_type="application/javascript")
