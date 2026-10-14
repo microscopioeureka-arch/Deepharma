@@ -238,3 +238,12 @@ button:hover, .btn-sec:hover { border-color: var(--green); background: #30445a; 
   .cartao { padding: 15px; }
   .item-seq-salva { align-items: flex-start; flex-direction: column; }
 }
+
+
+/* Deepharma: a geração bacteriana foi removida da interface.
+   Mantemos os elementos antigos no HTML apenas para compatibilidade com app.js. */
+label:has(#gerar-bacterias),
+#campo-n-bacterias,
+#lista-bacterias {
+  display: none !important;
+}
