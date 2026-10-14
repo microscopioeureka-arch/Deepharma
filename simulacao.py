@@ -262,7 +262,7 @@ TIPOS_RESPOSTA = {
     },
     "inibidor_capsomero_superficie": {
         "label": "Inibidor de capsômero / proteína de superfície",
-        "descricao": "Para vírus, representa um alvo estrutural do capsômero; para bactérias, uma proteína/envelope de superfície.",
+        "descricao": "Representa, de forma didática, um alvo estrutural viral de superfície.",
         "familia": "estrutura_superficie",
     },
     "coquetel_antiviral": {
@@ -270,16 +270,7 @@ TIPOS_RESPOSTA = {
         "descricao": "Compara uma resposta combinada contra alvos virais de ácido nucleico e superfície.",
         "familia": "coquetel_viral",
     },
-    "coquetel_antibacteriano": {
-        "label": "Coquetel antibacteriano (ácido nucleico + superfície)",
-        "descricao": "Compara uma resposta combinada contra alvos estruturais e de ácido nucleico bacterianos.",
-        "familia": "coquetel_bacteriano",
-    },
-    "coquetel_amplo": {
-        "label": "Coquetel amplo (vírus e bactérias)",
-        "descricao": "Aplica a mesma leitura combinada aos alvos virais e bacterianos presentes na simulação.",
-        "familia": "coquetel_amplo",
-    },
+
 }
 
 VIRUS_MODELOS_BASE = [
@@ -2606,6 +2597,11 @@ def executar_simulacao(config: dict, output_dir: str, progresso=None) -> dict:
         "n_mutacoes": 3,           # nº de mutações pontuais sorteadas por vírus (1-10)
     }
     cfg.update({k: v for k, v in (config or {}).items() if v is not None})
+    # Remoção funcional da simulação bacteriana: configurações antigas são
+    # aceitas para compatibilidade, mas não ativam mais geração/docking bacteriano.
+    cfg["gerar_bacterias"] = False
+    cfg["n_bacterias"] = 0
+    cfg["bacteria_genoma_customizado"] = None
 
     comprimento_prot = max(5, min(int(cfg["comprimento_proteina"]), 80))
     aa_pool   = [aa for aa in cfg.get("aminoacidos_pool", []) if aa in AMINOACIDOS]
