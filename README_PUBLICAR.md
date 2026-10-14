@@ -28,7 +28,7 @@ export COOKIE_SECURE=0
 uvicorn server:app --reload --port 8000
 ```
 
-Abra http://127.0.0.1:8000. A tela de senha deve aparecer antes da interface.
+Abra http://127.0.0.1:8000. A homepage pública abre primeiro; o botão **Iniciar** leva ao login e, após autenticar, ao `/simulador`.
 
 ## Publicar no Render
 
@@ -63,3 +63,12 @@ Não salve essas variáveis no GitHub. O arquivo `server.py` protege a tela, as 
 - O armazenamento local do Render pode ser apagado quando o serviço reiniciar. Para guardar resultados permanentemente, será necessário um disco persistente ou armazenamento externo.
 - A simulação depende de `torch`, `trimesh` e, para fármacos, `rdkit`; a instalação pode ser pesada. O Dockerfile incluído pode ser usado em plataformas que aceitem Docker.
 - O site e a API estão no mesmo serviço; por isso `const API = ""` permanece no `app.js`.
+
+
+## Homepage e escopo da simulação
+
+- `/` serve a homepage pública (`web/landing.html`).
+- `/simulador` serve a interface do simulador após login.
+- Os arquivos `web/landing.css` e `web/landing.js` estilizam a homepage.
+- A geração bacteriana foi desativada na execução web e local; os campos antigos são ignorados por compatibilidade.
+- A simulação 3D e o docking são modelos didáticos/heurísticos. Não comprovam eficácia de medicamentos nem substituem validação experimental.
