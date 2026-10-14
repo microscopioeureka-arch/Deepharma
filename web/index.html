@@ -110,8 +110,7 @@
       <p class="ajuda">
         Quanto menor a energia, melhor o candidato no modelo. Se o limite estiver ativo,
         o simulador tenta várias proteínas e escolhe a de menor energia que atingir o corte.
-        A estratégia selecionada vale para vírus e bactérias: “capsômero” é interpretado
-        como estrutura/proteína de superfície quando o alvo for bacteriano. Sem marcar
+        A estratégia selecionada é voltada aos alvos virais do modelo. Sem marcar
         compostos reais, a resposta usa a proteína gerada como candidato do docking;
         com compostos reais, eles também entram no ranking.
         <b>Resultado educacional e ilustrativo, sem validade terapêutica.</b>
@@ -122,7 +121,7 @@
     <section class="cartao">
       <h2>🦠 Alvos para docking (opcional)</h2>
       <p class="ajuda">A simulação testa se a sua proteína consegue se encaixar
-      (docking) no receptor de superfície do vírus ou da bactéria.</p>
+      (docking) no receptor de superfície viral.</p>
 
       <label class="linha-checkbox">
         <input type="checkbox" id="gerar-virus" checked />
@@ -229,7 +228,7 @@
       <h2>💊 Testar fármacos no docking (opcional)</h2>
       <p class="ajuda">A estratégia acima organiza a resposta didática. Para incluir ligantes
       reais no ranking — especialmente em um coquetel — marque esta opção e selecione os
-      compostos abaixo. A lista não comprova que um composto trate um vírus ou bactéria.</p>
+      compostos abaixo. A lista não comprova que um composto trate uma doença.</p>
       <label class="linha-checkbox">
         <input type="checkbox" id="incluir-reais" />
         Incluir compostos reais (fármacos) na triagem de docking
@@ -253,7 +252,7 @@
         diagramas e ilustrações. Usa a cor, proporção e pistas de forma para ajustar
         o modelo procedural e mostra a imagem escolhida nos resultados. Não reconstrói
         uma estrutura 3D completa a partir de uma foto 2D). Funciona com vírus preset,
-        vírus selecionado no NCBI e bactéria selecionada no NCBI.</span>
+        vírus selecionado no NCBI.</span>
       </label>
     </section>
 
