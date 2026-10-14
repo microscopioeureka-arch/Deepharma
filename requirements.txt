@@ -1,7 +1,7 @@
 # ── Obrigatórias — sem elas o site nem abre ──────────────────────────
 fastapi
 uvicorn[standard]
-pydantic
+pydantic>=2.9,<3
 numpy
 scipy
 torch

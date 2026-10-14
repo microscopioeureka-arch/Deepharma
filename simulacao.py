@@ -2688,9 +2688,7 @@ def executar_simulacao(config: dict, output_dir: str, progresso=None) -> dict:
             )
             energia_candidato = float(candidato.get("energia_final", 1e12))
             if not np.isfinite(energia_candidato):
-                # Evita enviar NaN/Infinity ao navegador, que não são JSON válido.
-                energia_candidato = 1e12
-                candidato["energia_final"] = energia_candidato
+                raise ValueError("Falha numérica: energia não finita durante a formação.")
             tentativas_feitas += 1
             if melhor_prot is None or energia_candidato < melhor_energia:
                 melhor_prot = candidato
