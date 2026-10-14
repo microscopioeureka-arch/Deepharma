@@ -1,3 +1,14 @@
+function escapeHTML(value) {
+  return String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+function safeURL(value) {
+  try {
+    const u = new URL(String(value), window.location.origin);
+    return ["https:", "http:"].includes(u.protocol) ? escapeHTML(u.href) : "";
+  } catch { return ""; }
+}
 // app.js — Simulador Molecular
 // Troque API por "https://SEU-BACKEND.onrender.com" se hospedar separado.
 const API = "";
@@ -260,7 +271,7 @@ function renderSalvas() {
   salvas.forEach((s, i) => {
     const d = document.createElement("div");
     d.className = "item-seq-salva";
-    d.innerHTML = `<span class="seq-info"><b>${s.nome}</b><small>${s.tipo} · ${s.data}</small></span>
+    d.innerHTML = `<span class="seq-info"><b>${escapeHTML(s.nome)}</b><small>${escapeHTML(s.tipo)} · ${escapeHTML(s.data)}</small></span>
       <span class="seq-acoes">
         <button onclick="carregarSalva(${i})">↩ Usar</button>
         <button onclick="excluirSalva(${i})">✕</button>
@@ -363,8 +374,8 @@ elBtnBuscarVirus.addEventListener("click", async () => {
   elBuscaVirusStatus.style.color = "#9aa0ac";
   elBuscaVirusStatus.textContent = `${itens.length} resultado(s) no NCBI — escolha um abaixo.`;
   renderResultados(elResultadosVirus, itens, (item) => `
-      <b>${item.titulo}</b>
-      <small>${item.organismo ? item.organismo + " · " : ""}${item.accession}${
+      <b>${escapeHTML(item.titulo)}</b>
+      <small>${item.organismo ? escapeHTML(item.organismo) + " · " : ""}${escapeHTML(item.accession)}${
         item.tamanho_bases ? " · " + item.tamanho_bases.toLocaleString("pt-BR") + " bases" : ""}</small>
     `, (item) => {
     esconderResultados(elResultadosVirus);
@@ -394,8 +405,8 @@ elBtnBuscarBact.addEventListener("click", async () => {
   elBuscaBactStatus.style.color = "#9aa0ac";
   elBuscaBactStatus.textContent = `${itens.length} resultado(s) no NCBI — escolha um abaixo.`;
   renderResultados(elResultadosBact, itens, (item) => `
-      <b>${item.titulo}</b>
-      <small>${item.organismo ? item.organismo + " · " : ""}${item.accession}${
+      <b>${escapeHTML(item.titulo)}</b>
+      <small>${item.organismo ? escapeHTML(item.organismo) + " · " : ""}${escapeHTML(item.accession)}${
         item.tamanho_bases ? " · " + item.tamanho_bases.toLocaleString("pt-BR") + " bases" : ""}</small>
     `, (item) => {
     esconderResultados(elResultadosBact);
@@ -422,8 +433,8 @@ elBtnBuscarProt.addEventListener("click", async () => {
   elBuscaProtStatus.style.color = "#9aa0ac";
   elBuscaProtStatus.textContent = `${itens.length} resultado(s) no UniProt — escolha um abaixo.`;
   renderResultados(elResultadosProt, itens, (item) => `
-      <b>${item.nome}</b>
-      <small>${item.organismo ? item.organismo + " · " : ""}${item.accession}${
+      <b>${escapeHTML(item.nome)}</b>
+      <small>${item.organismo ? escapeHTML(item.organismo) + " · " : ""}${escapeHTML(item.accession)}${
         item.tamanho_residuos ? " · " + item.tamanho_residuos + " aa" : ""}</small>
     `, (item) => {
     esconderResultados(elResultadosProt);
@@ -565,6 +576,11 @@ async function acompanharJob(id) {
 
 // ── Exibir resultados ────────────────────────────────────────────────
 function mostrarResultado(res) {
+  const quality = document.getElementById("qualidade-execucao");
+  if (quality) quality.textContent = res.qualidade_cientifica
+    ? "Integridade numérica: " + res.qualidade_cientifica.integridade_numerica +
+      ". Validade biológica: não demonstrada. Baixe o relatório de qualidade para consultar as limitações."
+    : "Relatório de qualidade ausente: resultado não auditado.";
   elSecaoResultados.style.display = "block";
 
   // Estratégia de resposta selecionada
@@ -579,16 +595,16 @@ function mostrarResultado(res) {
         const score = a.score_local == null ? "—" : a.score_local;
         const limite = a.dentro_limite === null || a.dentro_limite === undefined
           ? "" : (a.dentro_limite ? " · dentro ✅" : " · fora ⚠️");
-        return `<tr><td>${tipoAlvo}: ${a.nome}</td><td>${a.ligante_melhor || "—"}</td><td>${energia}</td><td>${score}${limite}</td></tr>`;
+        return `<tr><td>${tipoAlvo}: ${escapeHTML(a.nome)}</td><td>${escapeHTML(a.ligante_melhor || "—")}</td><td>${energia}</td><td>${score}${limite}</td></tr>`;
       }).join("");
       const cobertura = resp.cobertura_percentual == null ? "sem corte" : `${resp.cobertura_percentual}%`;
       elListaResposta.innerHTML = `<div class="item-resultado">
-        <h3>🎯 ${resp.label}</h3>
-        <p>${resp.descricao}</p>
-        <small><b>Critério:</b> ${resp.regra} · <b>Cobertura:</b> ${cobertura}</small>
-        <p>${resp.resumo}</p>
+        <h3>🎯 ${escapeHTML(resp.label)}</h3>
+        <p>${escapeHTML(resp.descricao)}</p>
+        <small><b>Critério:</b> ${escapeHTML(resp.regra)} · <b>Cobertura:</b> ${cobertura}</small>
+        <p>${escapeHTML(resp.resumo)}</p>
         ${linhasAlvos ? `<table class="ranking"><tr><th>Alvo</th><th>Melhor candidato</th><th>Energia</th><th>Score local</th></tr>${linhasAlvos}</table>` : "<p>Nenhum alvo foi selecionado.</p>"}
-        <small>⚠️ ${resp.observacao}</small>
+        <small>⚠️ ${escapeHTML(resp.observacao)}</small>
       </div>`;
     }
   }
@@ -600,17 +616,17 @@ function mostrarResultado(res) {
     const s = p.estatisticas;
     const div = document.createElement("div");
     div.className = "item-resultado";
-    div.innerHTML = `<b>${p.nome}</b>
+    div.innerHTML = `<b>${escapeHTML(p.nome)}</b>
       <br/><small>${s.n_residuos} resíduos &nbsp;·&nbsp;
         massa ≈ ${s.massa_total_da.toFixed(1)} Da &nbsp;·&nbsp;
         carga ${s.carga_liquida >= 0 ? "+" : ""}${s.carga_liquida.toFixed(2)}</small>
-      ${p.energia_formacao != null ? `<br/><small>⚡ Energia de formação: <b>${p.energia_formacao}</b>${p.limite_energetico != null ? ` / limite ${p.limite_energetico} — ${p.atingiu_limite_energetico ? "atingido ✅" : "não atingido; melhor candidato ⚠️"}` : ""}</small>` : ""}
+      ${p.energia_formacao != null ? `<br/><small>⚡ Escore de formação (u.a.): <b>${p.energia_formacao}</b>${p.limite_energetico != null ? ` / limite ${p.limite_energetico} — ${p.atingiu_limite_energetico ? "atingido ✅" : "não atingido; melhor candidato ⚠️"}` : ""}</small>` : ""}
       <br/><small>
         <span style="color:#f05050">🔴 ${s.n_hidrofobo} hidrofóbicos</span> &nbsp;
         <span style="color:#50c878">🟢 ${s.n_hidrofilico} hidrofílicos</span>
       </small>
-      ${p.sequencia_fasta ? `<br/><small class="fasta">${p.sequencia_fasta}</small>` : ""}
-      ${p.glb ? `<br/><button data-glb="${p.glb}" class="btn-ver">Ver em 3D</button>` : ""}`;
+      ${p.sequencia_fasta ? `<br/><small class="fasta">${escapeHTML(p.sequencia_fasta)}</small>` : ""}
+      ${p.glb ? `<br/><button data-glb="${safeURL(p.glb)}" class="btn-ver">Ver em 3D</button>` : ""}`;
     listaP.appendChild(div);
   });
 
@@ -620,16 +636,16 @@ function mostrarResultado(res) {
   (res.virus || []).forEach(v => {
     const div = document.createElement("div");
     div.className = "item-resultado";
-    div.innerHTML = `${v.nome}
-      ${v.customizado ? `<small>(genoma: ${v.genoma})</small>` : ""}
+    div.innerHTML = `${escapeHTML(v.nome)}
+      ${v.customizado ? `<small>(genoma: ${escapeHTML(v.genoma)})</small>` : ""}
       ${v.imagem_referencia ? `
         <br/>
         <div class="ref-imagem">
           <div class="ref-titulo">📷 Comparação com referência científica</div>
-          ${v.imagem_referencia.thumb_url ? `<img src="${v.imagem_referencia.thumb_url}" alt="Micrografia científica de referência" class="thumb-ref"/>` : ""}
-          <small>Paleta/proporção do modelo ajustadas com <a href="${v.imagem_referencia.url}" target="_blank">micrografia filtrada (${v.imagem_referencia.titulo || "Wikimedia Commons"})</a>${v.imagem_referencia.licenca ? ` · ${v.imagem_referencia.licenca}` : ""}</small>
+          ${v.imagem_referencia.thumb_url ? `<img src="${safeURL(v.imagem_referencia.thumb_url)}" alt="Micrografia científica de referência" class="thumb-ref"/>` : ""}
+          <small>Paleta/proporção do modelo ajustadas com <a href="${safeURL(v.imagem_referencia.url)}" target="_blank">micrografia filtrada (${escapeHTML(v.imagem_referencia.titulo || "Wikimedia Commons")})</a>${v.imagem_referencia.licenca ? ` · ${escapeHTML(v.imagem_referencia.licenca)}` : ""}</small>
         </div>` : ""}
-      ${v.glb ? `<button data-glb="${v.glb}" class="btn-ver">Ver em 3D</button>` : ""}`;
+      ${v.glb ? `<button data-glb="${safeURL(v.glb)}" class="btn-ver">Ver em 3D</button>` : ""}`;
     listaV.appendChild(div);
   });
 
@@ -659,11 +675,11 @@ function mostrarResultado(res) {
           <div class="ref-imagem">
             <div class="ref-titulo">📷 Comparação com referência científica</div>
             ${b.imagem_referencia.thumb_url ? `<img src="${b.imagem_referencia.thumb_url}" alt="Micrografia científica de referência" class="thumb-ref"/>` : ""}
-            <small>Forma/paleta ajustadas com <a href="${b.imagem_referencia.url}" target="_blank">micrografia filtrada (${b.imagem_referencia.titulo || "Wikimedia Commons"})</a>${b.imagem_referencia.licenca ? ` · ${b.imagem_referencia.licenca}` : ""}</small>
+            <small>Forma/paleta ajustadas com <a href="${safeURL(b.imagem_referencia.url)}" target="_blank">micrografia filtrada (${b.imagem_referencia.titulo || "Wikimedia Commons"})</a>${b.imagem_referencia.licenca ? ` · ${escapeHTML(b.imagem_referencia.licenca)}` : ""}</small>
           </div>` : ""}`;
     }
-    div.innerHTML = `<b>${b.nome}</b>${detalhes}
-      ${b.glb ? `<br/><button data-glb="${b.glb}" class="btn-ver">Ver em 3D</button>` : ""}`;
+    div.innerHTML = `<b>${escapeHTML(b.nome)}</b>${detalhes}
+      ${b.glb ? `<br/><button data-glb="${safeURL(b.glb)}" class="btn-ver">Ver em 3D</button>` : ""}`;
     listaB.appendChild(div);
   });
 
@@ -673,8 +689,8 @@ function mostrarResultado(res) {
   (res.docking || []).forEach(d => {
     const div = document.createElement("div");
     div.className = "item-resultado";
-    div.innerHTML = `<b>${d.composto}</b> × <b>${d.virus}</b> — score ${d.score}/100
-      ${d.glb ? `<button data-glb="${d.glb}" class="btn-ver">Ver em 3D</button>` : ""}`;
+    div.innerHTML = `<b>${escapeHTML(d.composto)}</b> × <b>${escapeHTML(d.virus)}</b> — score ${d.score}/100
+      ${d.glb ? `<button data-glb="${safeURL(d.glb)}" class="btn-ver">Ver em 3D</button>` : ""}`;
     listaDock.appendChild(div);
   });
 
@@ -690,10 +706,10 @@ function mostrarResultado(res) {
       const listaMuts = m.mutacoes.map(x => `${x.de_1letra}${x.posicao}${x.para_1letra}`).join(", ");
       const div = document.createElement("div");
       div.className = "item-resultado";
-      div.innerHTML = `<b>${m.virus}</b>
+      div.innerHTML = `<b>${escapeHTML(m.virus)}</b>
         <br/><small class="fasta">${listaMuts}</small>
         <br/><small>Impacto médio: <span style="color:${cor}">${m.indice_impacto_medio}/100 — ${m.classificacao}</span></small>
-        ${m.glb ? `<br/><button data-glb="${m.glb}" class="btn-ver">Ver variante mutante em 3D</button>` : ""}`;
+        ${m.glb ? `<br/><button data-glb="${safeURL(m.glb)}" class="btn-ver">Ver variante mutante em 3D</button>` : ""}`;
       listaMut.appendChild(div);
     });
 
@@ -701,11 +717,11 @@ function mostrarResultado(res) {
       const mt = res.mutacao_top;
       const div = document.createElement("div");
       div.className = "item-resultado";
-      div.innerHTML = `<b>Impacto no melhor encaixe:</b> ${mt.composto} × ${mt.virus} (mutado)
-        <br/><small>Energia de ligação: ${mt.energia_original} → ${mt.energia_mutante}
+      div.innerHTML = `<b>Impacto no melhor encaixe:</b> ${escapeHTML(mt.composto)} × ${escapeHTML(mt.virus)} (mutado)
+        <br/><small>Escore de encaixe (u.a.): ${mt.energia_original} → ${mt.energia_mutante}
           (Δ${mt.delta_energia >= 0 ? "+" : ""}${mt.delta_energia})</small>
-        <br/><small><b>${mt.interpretacao}</b></small>
-        ${mt.glb ? `<br/><button data-glb="${mt.glb}" class="btn-ver">Ver docking mutante em 3D</button>` : ""}`;
+        <br/><small><b>${escapeHTML(mt.interpretacao)}</b></small>
+        ${mt.glb ? `<br/><button data-glb="${safeURL(mt.glb)}" class="btn-ver">Ver docking mutante em 3D</button>` : ""}`;
       listaMut.appendChild(div);
     }
   }
@@ -715,7 +731,7 @@ function mostrarResultado(res) {
   if (res.ranking && res.ranking.length) {
     let html = "<h3>Ranking</h3><table class='ranking'><tr><th>Proteína/Ligante</th><th>Alvo</th><th>Score</th></tr>";
     res.ranking.slice(0, 20).forEach(r => {
-      html += `<tr><td>${r.composto}</td><td>${r.virus}</td><td>${r.score}</td></tr>`;
+      html += `<tr><td>${escapeHTML(r.composto)}</td><td>${escapeHTML(r.virus)}</td><td>${r.score}</td></tr>`;
     });
     elRanking.innerHTML = html + "</table>";
   } else { elRanking.innerHTML = ""; }
@@ -726,7 +742,7 @@ function mostrarResultado(res) {
   Object.entries(res.arquivos || {}).forEach(([nome, url]) => {
     if (!url) return;
     const a = document.createElement("a");
-    a.href = url; a.target = "_blank"; a.className = "link-arquivo";
+    a.href = safeURL(url).replace(/&amp;/g, "&"); a.target = "_blank"; a.className = "link-arquivo";
     a.textContent = `⬇ ${nome}`;
     elArq.appendChild(a);
   });
