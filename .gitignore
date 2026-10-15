@@ -1,0 +1,17 @@
+# Arquivos gerados em execução
+/outputs/
+/dados_cache/
+__pycache__/
+*.py[cod]
+
+# Ambiente local e segredos
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+.pytest_cache/
+.coverage
+htmlcov/
+.DS_Store
+Thumbs.db

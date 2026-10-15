@@ -1,0 +1,13 @@
+.git
+.venv
+venv
+**/__pycache__
+**/*.pyc
+**/*.pyo
+outputs
+dados_cache
+.env
+.env.*
+.pytest_cache
+.coverage
+htmlcov
