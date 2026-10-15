@@ -32,6 +32,15 @@
 
   <!-- ===== PAINEL ROLÁVEL: controles + resultados ===== -->
   <main id="painel-scroll">
+    <section class="cartao" aria-label="Limites científicos">
+      <h2>Modelo exploratório — sem validação biológica</h2>
+      <p>As geometrias são ilustrativas. Os escores usam unidades arbitrárias;
+      não representam afinidade experimental, eficácia ou previsão de evolução viral.
+      O modo lento não transforma este modelo em dinâmica molecular validada.</p>
+      <p>PDB descreve estruturas macromoleculares, não certifica genomas completos.
+      Importar composição do UniProt não preserva a ordem da sequência original.</p>
+      <p id="qualidade-execucao" role="status">Cada execução gera um relatório de integridade e rastreabilidade.</p>
+    </section>
 
     <!-- ── PROTEÍNA ── -->
     <section class="cartao">
@@ -58,7 +67,7 @@
       </label>
       <div id="bloco-composicao" style="display:none;">
         <p class="ajuda">Escolha os aminoácidos e a quantidade de cada um.
-        A ordem na cadeia é decidida pela física de dobramento.</p>
+        A ordem é gerada pelo modelo: composição igual não significa a mesma proteína, nem preserva a sequência do UniProt.</p>
         <div class="bloco-busca-real">
           <input type="text" id="busca-proteina-termo" placeholder="ex.: human insulin, lysozyme, spike protein..." />
           <button class="btn-sec" id="btn-buscar-proteina">🌐 Buscar proteína real (UniProt)</button>

@@ -12,14 +12,16 @@ Depois abra http://localhost:8000 no navegador.
 import os
 import uuid
 import threading
-import traceback
 import secrets
+import logging
+from typing import Literal
+from scientific_quality import build_quality_report, write_quality_report
 
 from fastapi import FastAPI, HTTPException, Request, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, PlainTextResponse, FileResponse
 from starlette.middleware.sessions import SessionMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 import simulacao  # mesmo diretório, import direto
 
@@ -117,7 +119,7 @@ async def tela_login(request: Request):
 
 @app.post("/login", response_class=HTMLResponse)
 async def fazer_login(request: Request, senha: str = Form(...)):
-    if secrets.compare_digest(senha, APP_PASSWORD):
+    if secrets.compare_digest(senha.encode("utf-8"), APP_PASSWORD.encode("utf-8")):
         request.session["logged_in"] = True
         return RedirectResponse("/simulador", status_code=303)
     return HTMLResponse(pagina_login("Senha incorreta."), status_code=401)
@@ -140,12 +142,13 @@ _lock = threading.Lock()
 
 
 class VirusCustomizado(BaseModel):
-    nome: str = ""
+    model_config = ConfigDict(allow_inf_nan=False)
+    nome: str = Field(default="", max_length=200)
     preset: str = ""                  # "covid19" | "hiv" | "influenza" | "" (vazio = customizado)
-    tipo_acido: str = "RNA"           # "RNA" ou "DNA" (só usado se preset vazio)
-    sequencia_acido: str = ""          # texto cru digitado pelo usuário (só se preset vazio)
-    raio_envelope: float = 6.0
-    n_espiculas: int = 30
+    tipo_acido: Literal["RNA", "DNA"] = "RNA"           # "RNA" ou "DNA" (só usado se preset vazio)
+    sequencia_acido: str = Field(default="", max_length=10000)          # texto cru digitado pelo usuário (só se preset vazio)
+    raio_envelope: float = Field(default=6.0, ge=1, le=20)
+    n_espiculas: int = Field(default=30, ge=1, le=100)
     usar_imagem_referencia: bool = False   # ajusta cor/alongamento com foto real (Wikimedia)
     nome_organismo_imagem: str = ""        # termo de busca da imagem (ex.: organismo do resultado escolhido)
 
@@ -158,11 +161,12 @@ class BacteriaGenomaCustomizado(BaseModel):
 
 
 class SimularRequest(BaseModel):
+    model_config = ConfigDict(allow_inf_nan=False)
     # ---- proteína nova por combinação de aminoácidos ------------------
-    comprimento_proteina: int = 30       # nº total de resíduos da cadeia
+    comprimento_proteina: int = Field(default=30, ge=5, le=80)       # nº total de resíduos da cadeia
     aminoacidos_pool: list[str] = Field(default_factory=list)     # AAs permitidos ([] = todos os 20)
     composicao_fixa: dict[str, int] = Field(default_factory=dict) # {"ALA":4,"LEU":6} — ignora comprimento/pool
-    n_proteinas: int = 1                 # quantas proteínas gerar (1-5)
+    n_proteinas: int = Field(default=1, ge=1, le=5)                 # quantas proteínas gerar (1-5)
 
     # ---- ambiente e velocidade ----------------------------------------
     ambiente: str = "citoplasma"
@@ -183,7 +187,25 @@ class SimularRequest(BaseModel):
 
     # ---- previsão de mutações nos vírus -------------------------------
     prever_mutacao: bool = False
-    n_mutacoes: int = 3
+    n_mutacoes: int = Field(default=3, ge=1, le=10)
+
+
+    @model_validator(mode="after")
+    def validar_configuracao(self):
+        if self.ambiente not in simulacao.ENVIRONMENTS:
+            raise ValueError("Ambiente desconhecido.")
+        if any(aa not in simulacao.AMINOACIDOS for aa in self.aminoacidos_pool):
+            raise ValueError("Aminoácido desconhecido.")
+        if self.composicao_fixa:
+            if any(aa not in simulacao.AMINOACIDOS or q < 0
+                   for aa, q in self.composicao_fixa.items()):
+                raise ValueError("Composição inválida: use aminoácidos conhecidos e contagens não negativas.")
+            if not 5 <= sum(self.composicao_fixa.values()) <= 80:
+                raise ValueError("A composição deve totalizar de 5 a 80 resíduos.")
+        if len(self.elementos) > len(simulacao.COMPOSTOS_REAIS) or any(
+                e not in simulacao.COMPOSTOS_REAIS for e in self.elementos):
+            raise ValueError("Composto desconhecido ou lista excessiva.")
+        return self
 
 
 @app.get("/api/opcoes")
@@ -215,13 +237,20 @@ def _rodar_job(job_id: str, config: dict):
 
     try:
         resultado = simulacao.executar_simulacao(config, job_dir, progresso=progresso)
+        quality = build_quality_report(config, resultado, BASE_DIR)
+        write_quality_report(quality, os.path.join(job_dir, "qualidade.json"))
+        resultado["qualidade_cientifica"] = quality
+        resultado.setdefault("arquivos", {})["qualidade"] = "qualidade.json"
+        if quality["integridade_numerica"] != "aprovada":
+            raise ValueError("Resultado contém valores não finitos; consulte o registro do servidor.")
         with _lock:
             JOBS[job_id]["estado"] = "concluido"
             JOBS[job_id]["resultado"] = resultado
     except Exception as e:
         with _lock:
             JOBS[job_id]["estado"] = "erro"
-            JOBS[job_id]["erro"] = f"{e}\n{traceback.format_exc()}"
+            JOBS[job_id]["erro"] = "A execução falhou. Informe o identificador do job ao administrador."
+        logging.exception("Falha no job %s", job_id)
 
 
 @app.get("/api/buscar/acido_nucleico")
@@ -299,6 +328,11 @@ def buscar_proteina_detalhe(accession: str, max_residuos: int = 40):
 def simular(req: SimularRequest):
     job_id = uuid.uuid4().hex[:12]
     with _lock:
+        if any(job["estado"] == "executando" for job in JOBS.values()):
+            raise HTTPException(status_code=429, detail="Há uma simulação em execução. Aguarde sua conclusão.")
+        # Limita metadados em memória; arquivos persistem e exigem política de retenção.
+        while len(JOBS) >= 100:
+            del JOBS[next(iter(JOBS))]
         JOBS[job_id] = {"estado": "executando", "log": [], "resultado": None, "erro": None}
     config = req.model_dump() if hasattr(req, "model_dump") else req.dict()
     # Deepharma agora trabalha apenas com alvos virais; campos antigos do
@@ -307,7 +341,13 @@ def simular(req: SimularRequest):
     config["n_bacterias"] = 0
     config["bacteria_genoma_customizado"] = None
     t = threading.Thread(target=_rodar_job, args=(job_id, config), daemon=True)
-    t.start()
+    try:
+        t.start()
+    except Exception:
+        with _lock:
+            JOBS.pop(job_id, None)
+        logging.exception("Falha ao iniciar job %s", job_id)
+        raise HTTPException(status_code=503, detail="Não foi possível iniciar a execução.")
     return {"job_id": job_id}
 
 
