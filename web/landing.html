@@ -12,7 +12,7 @@
 <header class="site-header">
 <a class="brand" href="/"><span class="brand-mark"><i></i><i></i><i></i></span><span>deepharma</span></a>
 <button class="menu-toggle" aria-label="Abrir menu" aria-expanded="false">☰</button>
-<nav class="nav-links"><a href="#sobre">Sobre</a><a href="#recursos">Recursos</a><a class="nav-cta" href="/login">Entrar ↗</a></nav>
+<nav class="nav-links"><a href="#sobre">Sobre</a><a href="#recursos">Recursos</a><a href="#planos">Planos</a><a class="nav-cta" href="/login">Entrar ↗</a></nav>
 </header>
 <main>
 <section class="hero">
@@ -46,6 +46,32 @@
 <article class="feature-card"><div class="feature-number">02</div><div class="feature-icon icon-target"><i></i><i></i><i></i></div><h3>Interações e docking</h3><p>Explore modelos ilustrativos de encaixe molecular e compare resultados dentro de diferentes configurações.</p><span class="feature-foot">EXPLORAÇÃO INTERATIVA ↗</span></article>
 <article class="feature-card"><div class="feature-number">03</div><div class="feature-icon icon-data"><i></i><i></i><i></i><i></i><i></i></div><h3>Sequências e variantes</h3><p>Experimente sequências personalizadas e observe como alterações podem ser representadas no modelo.</p><span class="feature-foot">DADOS E SIMULAÇÃO ↗</span></article>
 </div></section>
+<section class="plans section-wrap" id="planos">
+  <div class="section-heading">
+    <div><div class="section-kicker">03 / PLANOS DE ACESSO</div><h2>Escolha como <em>explorar.</em></h2></div>
+    <span class="heading-mark">↗</span>
+  </div>
+  <p class="plans-intro">O plano gratuito fica disponível para começar. Os planos pagos são propostas e só poderão ser contratados quando a integração de pagamentos estiver configurada.</p>
+  <p id="billing-status" role="status" aria-live="polite">Verificando disponibilidade dos pagamentos...</p>
+  <div class="plans-grid">
+    <article class="plan-card">
+      <span class="plan-tag">Para começar</span><h3>Gratuito</h3><p class="plan-price">US$ 0 <small>/ mês</small></p>
+      <ul><li>Até 5 simulações por mês</li><li>Acesso ao simulador</li><li>Visualização dos resultados</li></ul>
+      <a class="button button-primary plan-button" href="/login">Começar grátis ↗</a>
+    </article>
+    <article class="plan-card">
+      <span class="plan-tag">Uso frequente</span><h3>Deeplatinum</h3><p class="plan-price">US$ 12 <small>/ mês · estimativa</small></p>
+      <ul><li>Até 40 simulações em 5 horas</li><li>Recursos do simulador</li><li>Gerenciamento da assinatura</li></ul>
+      <button class="button button-quiet plan-button" type="button" data-checkout-plan="deeplatinum" disabled>Pagamento indisponível</button>
+    </article>
+    <article class="plan-card plan-featured">
+      <span class="plan-tag">Uso avançado</span><h3>DeepharmaX</h3><p class="plan-price">US$ 25 <small>/ mês · estimativa</small></p>
+      <ul><li>Simulações sem limite de quantidade</li><li>Recursos do simulador</li><li>Gerenciamento da assinatura</li></ul>
+      <button class="button button-quiet plan-button" type="button" data-checkout-plan="deepharmax" disabled>Pagamento indisponível</button>
+    </article>
+  </div>
+  <p class="plans-note">Os preços são estimativas e não constituem oferta de contratação. Pagamentos e assinaturas não estarão ativos até configurar os preços no Stripe, um banco de dados persistente e o webhook assinado. O uso científico é educacional e ilustrativo.</p>
+</section>
 <section class="closing section-wrap"><div class="closing-orb"><i></i><i></i><i></i><i></i><i></i></div><div class="section-kicker">03 / SUA PRÓXIMA DESCOBERTA</div><h2>Comece pela<br><em>sua pergunta.</em></h2><p>Entre no ambiente Deepharma e comece a explorar.</p><a class="button button-primary" href="/login">Iniciar <span>↗</span></a></section>
 </main>
 <footer class="site-footer"><a class="brand brand-footer" href="/"><span class="brand-mark"><i></i><i></i><i></i></span><span>deepharma</span></a><span>Ciência em movimento.</span><a href="#sobre">Voltar ao topo ↑</a><small>© <span id="year"></span> Deepharma · Projeto educacional</small></footer>
