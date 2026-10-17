@@ -223,7 +223,7 @@ async def csrf_token(request: Request):
 
 @app.get("/api/billing/status")
 def billing_status():
-    return {"enabled": billing.billing_is_configured()}
+    return billing.public_billing_status()
 
 
 @app.get("/api/usage")
