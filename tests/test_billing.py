@@ -105,12 +105,13 @@ class BillingTests(unittest.TestCase):
             "DEEPHARMA_DB_PATH": os.environ["DEEPHARMA_DB_PATH"],
         })
         price = {
+            "id": "price_platinum",
             "active": True,
             "currency": "usd",
             "unit_amount": 1200,
             "recurring": {"interval": "month", "interval_count": 1},
         }
-        with mock.patch.object(billing, "_stripe_get", side_effect=[price, {**price, "unit_amount": 2500}]):
+        with mock.patch.object(billing, "_stripe_get", side_effect=[price, {**price, "id": "price_max", "unit_amount": 2500}]):
             result = billing.public_billing_status()
         self.assertTrue(result["enabled"])
         self.assertEqual(result["plans"]["deeplatinum"]["amount"], 1200)
@@ -127,10 +128,12 @@ class BillingTests(unittest.TestCase):
             "DEEPHARMA_DB_PATH": os.environ["DEEPHARMA_DB_PATH"],
         })
         monthly = {
+            "id": "price_platinum",
             "active": True, "currency": "usd", "unit_amount": 1200,
             "recurring": {"interval": "month", "interval_count": 1},
         }
         yearly = {
+            "id": "price_max",
             "active": True, "currency": "usd", "unit_amount": 2500,
             "recurring": {"interval": "year", "interval_count": 1},
         }
