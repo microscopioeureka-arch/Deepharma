@@ -396,10 +396,18 @@ def _rodar_job(job_id: str, config: dict):
         resultado.setdefault("arquivos", {})["qualidade"] = "qualidade.json"
         if quality["integridade_numerica"] != "aprovada":
             raise ValueError("Resultado contém valores não finitos; consulte o registro do servidor.")
+        try:
+            billing.finish_simulation(job_id, "succeeded")
+        except Exception:
+            logging.exception("Não foi possível finalizar registro de uso do job %s", job_id)
         with _lock:
             JOBS[job_id]["estado"] = "concluido"
             JOBS[job_id]["resultado"] = resultado
     except Exception as e:
+        try:
+            billing.finish_simulation(job_id, "failed")
+        except Exception:
+            logging.exception("Não foi possível registrar falha de uso do job %s", job_id)
         with _lock:
             JOBS[job_id]["estado"] = "erro"
             JOBS[job_id]["erro"] = "A execução falhou. Informe o identificador do job ao administrador."
@@ -478,31 +486,51 @@ def buscar_proteina_detalhe(accession: str, max_residuos: int = 40):
 
 
 @app.post("/api/simular")
-def simular(req: SimularRequest):
+def simular(req: SimularRequest, request: Request):
+    user_id = request.session.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Entre em uma conta para usar o simulador.")
+
     job_id = uuid.uuid4().hex[:12]
-    with _lock:
-        if any(job["estado"] == "executando" for job in JOBS.values()):
-            raise HTTPException(status_code=429, detail="Há uma simulação em execução. Aguarde sua conclusão.")
-        # Limita metadados em memória; arquivos persistem e exigem política de retenção.
-        while len(JOBS) >= 100:
-            del JOBS[next(iter(JOBS))]
-        JOBS[job_id] = {"estado": "executando", "log": [], "resultado": None, "erro": None}
     config = req.model_dump() if hasattr(req, "model_dump") else req.dict()
-    # Deepharma agora trabalha apenas com alvos virais; campos antigos do
-    # frontend são ignorados para compatibilidade, sem executar geração bacteriana.
+    # Mantém a configuração antiga do frontend compatível com o backend.
     config["gerar_bacterias"] = False
     config["n_bacterias"] = 0
     config["bacteria_genoma_customizado"] = None
+
+    with _lock:
+        if any(job["estado"] == "executando" for job in JOBS.values()):
+            raise HTTPException(status_code=429, detail="Há uma simulação em execução. Aguarde sua conclusão.")
+        try:
+            quota = billing.reserve_simulation(user_id, job_id)
+        except billing.SimulationLimitReached as exc:
+            raise HTTPException(
+                status_code=429,
+                detail={"message": str(exc), "usage": exc.summary},
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=401, detail=str(exc))
+
+        while len(JOBS) >= 100:
+            del JOBS[next(iter(JOBS))]
+        JOBS[job_id] = {
+            "estado": "executando", "log": [], "resultado": None, "erro": None,
+            "user_id": int(user_id), "quota": quota,
+        }
+
     t = threading.Thread(target=_rodar_job, args=(job_id, config), daemon=True)
     try:
         t.start()
     except Exception:
+        try:
+            billing.finish_simulation(job_id, "failed")
+        except Exception:
+            logging.exception("Falha ao finalizar reserva de cota do job %s", job_id)
         with _lock:
             JOBS.pop(job_id, None)
         logging.exception("Falha ao iniciar job %s", job_id)
         raise HTTPException(status_code=503, detail="Não foi possível iniciar a execução.")
     return {"job_id": job_id}
-
 
 @app.get("/api/status/{job_id}")
 def status(job_id: str):
