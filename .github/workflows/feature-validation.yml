@@ -1,0 +1,21 @@
+name: Feature validation
+
+on:
+  push:
+    branches:
+      - feature/modelos-cientificos-assinaturas
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile Python sources
+        run: python -m compileall -q server.py billing.py simulacao.py scientific_quality.py
+      - name: Test account, quota and webhook helpers
+        run: python -m unittest discover -s tests -v
