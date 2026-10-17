@@ -2944,7 +2944,10 @@ def executar_simulacao(config: dict, output_dir: str, progresso=None) -> dict:
             scene_virus = trimesh.Scene()
             for g in geos:
                 scene_virus.add_geometry(g)
-            scene_virus.apply_translation(-scene_virus.centroid)
+            deslocamento_centro = -np.asarray(scene_virus.centroid, dtype=float)
+            scene_virus.apply_translation(deslocamento_centro)
+            # Mantém o alvo de docking no mesmo referencial da malha GLB centrada.
+            pontos_spike = pontos_spike + deslocamento_centro
             nome_arq = slug(v["nome"])
             glb = exportar_glb(scene_virus, os.path.join(dir_virus, f"virus_{nome_arq}_{run_id}.glb"))
             v["pontos_alvo"] = pontos_spike
@@ -3035,7 +3038,10 @@ def executar_simulacao(config: dict, output_dir: str, progresso=None) -> dict:
             scene_virus = trimesh.Scene()
             for g in geos:
                 scene_virus.add_geometry(g)
-            scene_virus.apply_translation(-scene_virus.centroid)
+            deslocamento_centro = -np.asarray(scene_virus.centroid, dtype=float)
+            scene_virus.apply_translation(deslocamento_centro)
+            # Mantém o alvo de docking no mesmo referencial da malha GLB centrada.
+            pontos_spike = pontos_spike + deslocamento_centro
             nome_arq = slug(v["nome"])
             glb = exportar_glb(scene_virus, os.path.join(dir_virus, f"virus_{nome_arq}_{run_id}.glb"))
             v["pontos_alvo"] = pontos_spike
@@ -3046,6 +3052,12 @@ def executar_simulacao(config: dict, output_dir: str, progresso=None) -> dict:
                 "nome": v["nome"], "customizado": True,
                 "genoma": f"{tipo_acido}: {''.join(bases_customizadas)}",
                 "glb": os.path.relpath(glb, output_dir) if glb else None,
+                "morfologia": v["estilo"].get("morfologia", "personalizado"),
+                "observacao_cientifica": (
+                    "Morfologia representada de forma esquemática; não é uma reconstrução atômica validada."
+                    if preset_key in VIRUS_REAIS_PRESETS else
+                    "O genoma informado não permite reconstruir a estrutura viral real; a geometria 3D é esquemática."
+                ),
                 "imagem_referencia": imagem_ref_info,
             })
             log(f"  {nome_vc} (genoma customizado, {tipo_acido}, {len(bases_customizadas)} bases) pronto.")
