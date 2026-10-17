@@ -11,3 +11,25 @@
 @media(max-width:800px){.site-header{height:72px;padding:0 22px}.menu-toggle{display:block}.nav-links{display:none;position:absolute;top:71px;left:0;right:0;padding:20px 22px 24px;background:#152019;border-bottom:1px solid var(--line);flex-direction:column;align-items:stretch;gap:18px}.nav-links.open{display:flex}.nav-cta{text-align:center}.hero{padding:60px 22px 0;grid-template-columns:1fr;min-height:0}.hero-copy{padding:12px 0 0}.hero-art{min-height:380px;margin-top:5px}.molecule{max-width:470px}.label-top{right:3%;top:30px}.label-bottom{left:4%;bottom:25px}.art-index{right:4%;bottom:18px}.hero-bottom-line{margin-top:15px}.section-wrap{padding-left:22px;padding-right:22px}.intro{padding-top:80px;padding-bottom:85px}.intro-grid{grid-template-columns:1fr;gap:22px}.features{padding-top:55px;padding-bottom:80px}.feature-grid{grid-template-columns:1fr;gap:12px}.feature-card{min-height:275px}.feature-icon{margin:20px 0}.closing{margin-left:22px;margin-right:22px;padding-top:70px;padding-bottom:75px}.site-footer{padding-left:22px;padding-right:22px;gap:15px}}
 @media(max-width:450px){h1{font-size:3.1rem}.hero-art{min-height:310px}.art-label{font-size:.52rem}.hero-bottom-line{font-size:.49rem}.hero-bottom-line span:first-child{max-width:75%}.section-heading h2{font-size:2.25rem}.heading-mark{font-size:1.8rem}.site-footer{align-items:flex-start}.site-footer>span{display:none}.site-footer>a:nth-of-type(2){margin-left:auto}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+
+/* Planos de acesso */
+.plans{padding-top:76px;padding-bottom:110px;border-top:1px solid var(--line)}
+.plans-intro{max-width:650px;margin:20px 0 0;color:#aebbb1;font-size:.9rem;line-height:1.8}
+.plans-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:34px;align-items:stretch}
+.plan-card{display:flex;flex-direction:column;padding:23px 19px 20px;background:linear-gradient(145deg,rgba(33,48,38,.9),rgba(21,31,25,.82));border:1px solid var(--line);border-radius:7px;min-width:0}
+.plan-featured{border-color:rgba(169,237,184,.65);box-shadow:0 0 0 1px rgba(169,237,184,.08)}
+.plan-top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.plan-name{font-size:1.05rem;font-weight:800;letter-spacing:-.03em}
+.plan-tag{font:.56rem var(--mono);color:var(--green);border:1px solid rgba(169,237,184,.25);padding:4px 7px;border-radius:999px}
+.plan-price{font-size:1.8rem;font-weight:800;letter-spacing:-.06em;margin-top:22px;white-space:nowrap}
+.plan-price small{font-size:.7rem;font-weight:500;letter-spacing:0;color:#93a497}
+.plan-description{min-height:74px;margin:10px 0 8px;color:#aab9ad;font-size:.78rem;line-height:1.75}
+.plan-card ul{list-style:none;margin:0 0 24px;padding:0;display:grid;gap:11px}
+.plan-card li{position:relative;padding-left:19px;color:#c5d0c7;font-size:.75rem;line-height:1.5}
+.plan-card li:before{content:"✓";position:absolute;left:0;color:var(--green)}
+.plan-button{width:100%;margin-top:auto;gap:8px;text-align:center;font-size:.75rem;padding:12px 9px}
+.button-disabled{display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.04);border:1px solid var(--line);color:#829187;cursor:not-allowed;transform:none!important}
+.plans-note{margin:18px 0 0;color:#819186;font-size:.72rem;line-height:1.7}
+@media(max-width:1000px){.plans-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.plans{padding-top:58px;padding-bottom:75px}.plans-grid{grid-template-columns:1fr}.plan-description{min-height:0}.plan-card{padding:22px}.plan-price{font-size:2rem}}
