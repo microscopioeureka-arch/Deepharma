@@ -140,8 +140,8 @@ app.mount("/outputs", StaticFiles(directory=OUTPUT_DIR), name="outputs")
 JOBS: dict[str, dict] = {}
 _lock = threading.Lock()
 
-# As cotas de planos pagos só devem ser liberadas após integração de cobrança.
-PLAN_LIMITS = {"Gratuito": 5, "EX": 25, "Platinum": 100, "X": 500}
+# Apenas o plano Gratuito está ativo. Planos pagos exigem cobrança e cotas individuais antes de serem liberados.
+PLAN_LIMITS = {"Gratuito": 5}
 
 def _mes_atual():
     from datetime import datetime, timezone
