@@ -392,14 +392,16 @@ def _validated_monthly_price(plan: str) -> dict[str, Any]:
     recurring = price.get("recurring") or {}
     currency = str(price.get("currency") or "").lower()
     amount = price.get("unit_amount")
+    if price.get("id") != price_id:
+        raise BillingConfigurationError("O provedor retornou um ID de preço diferente do configurado.")
     if price.get("active") is not True:
         raise BillingConfigurationError("O preço Stripe deste plano não está ativo.")
     if recurring.get("interval") != "month" or int(recurring.get("interval_count") or 0) != 1:
         raise BillingConfigurationError("O preço Stripe precisa ser uma assinatura mensal.")
     if currency not in {"usd", "brl", "eur"}:
         raise BillingConfigurationError("Use um preço em USD, BRL ou EUR para este protótipo.")
-    if not isinstance(amount, int) or amount < 0:
-        raise BillingConfigurationError("O preço Stripe precisa ter um valor fixo configurado.")
+    if not isinstance(amount, int) or amount <= 0:
+        raise BillingConfigurationError("O preço Stripe precisa ter um valor fixo maior que zero.")
     return {
         "id": price_id,
         "currency": currency,
