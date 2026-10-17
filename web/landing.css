@@ -16,7 +16,7 @@
 /* Planos de acesso */
 .plans{padding-top:76px;padding-bottom:110px;border-top:1px solid var(--line)}
 .plans-intro{max-width:650px;margin:20px 0 0;color:#aebbb1;font-size:.9rem;line-height:1.8}
-.plans-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:34px;align-items:stretch}
+.plans-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:34px;align-items:stretch}
 .plan-card{display:flex;flex-direction:column;padding:23px 19px 20px;background:linear-gradient(145deg,rgba(33,48,38,.9),rgba(21,31,25,.82));border:1px solid var(--line);border-radius:7px;min-width:0}
 .plan-featured{border-color:rgba(169,237,184,.65);box-shadow:0 0 0 1px rgba(169,237,184,.08)}
 .plan-top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
