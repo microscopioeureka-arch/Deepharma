@@ -35,7 +35,7 @@ async function atualizarUsoMensal() {
       el.textContent = `Plano ${uso.plan_label}: ${uso.used}/${uso.limit} simulações em ${uso.period}; restam ${uso.remaining}.`;
     }
     const portal = document.getElementById("btn-gerenciar-assinatura");
-    if (portal) portal.hidden = !(uso.billing_enabled && uso.plan !== "free");
+    if (portal) portal.hidden = !(uso.billing_enabled && uso.can_manage_subscription);
   } catch (_) {
     el.textContent = "Não foi possível consultar o uso agora.";
   }
