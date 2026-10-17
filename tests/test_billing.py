@@ -11,6 +11,8 @@ import billing
 
 _ENV_NAMES = (
     "DEEPHARMA_DB_PATH",
+    "DEEPHARMA_STORAGE_DURABLE",
+    "ALLOW_LIVE_BILLING",
     "ENABLE_BILLING",
     "STRIPE_SECRET_KEY",
     "STRIPE_WEBHOOK_SECRET",
@@ -103,6 +105,7 @@ class BillingTests(unittest.TestCase):
             "STRIPE_PRICE_DEEPHARMAX": "price_max",
             "DEEPHARMA_PUBLIC_URL": "https://example.test",
             "DEEPHARMA_DB_PATH": os.environ["DEEPHARMA_DB_PATH"],
+            "DEEPHARMA_STORAGE_DURABLE": "true",
         })
         price = {
             "id": "price_platinum",
