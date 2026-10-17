@@ -103,6 +103,19 @@
       const response = await fetch('/api/billing/status');
       const data = await readJson(response, 'Verificar pagamentos');
       billingEnabled = data.enabled === true;
+      if (billingEnabled && data.plans) {
+        Object.entries(data.plans).forEach(([plan, price]) => {
+          const priceElement = document.querySelector(`[data-plan-price="${plan}"]`);
+          if (!priceElement || !Number.isInteger(price.amount) || !price.currency) return;
+          priceElement.textContent = new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: String(price.currency).toUpperCase()
+          }).format(price.amount / 100);
+          const interval = document.createElement('small');
+          interval.textContent = price.interval === 'month' ? ' / mês' : ' / ' + price.interval;
+          priceElement.append(' ', interval);
+        });
+      }
     } catch (_) {
       billingEnabled = false;
     }
