@@ -257,6 +257,7 @@ def usage_summary(user_id: int | str) -> dict[str, Any]:
         "plan": plan,
         "plan_label": PLANS[plan]["label"],
         "subscription_status": user["subscription_status"],
+        "can_manage_subscription": bool(user.get("stripe_customer_id")),
         "used": used,
         "limit": limit,
         "remaining": None if limit is None else max(0, limit - used),
@@ -313,17 +314,22 @@ def finish_simulation(job_id: str, status: str) -> None:
 
 def billing_is_configured() -> bool:
     enabled = os.environ.get("ENABLE_BILLING", "").strip().lower() in {"1", "true", "yes"}
+    durable_storage_ack = os.environ.get("DEEPHARMA_STORAGE_DURABLE", "").strip().lower() in {"1", "true", "yes"}
+    secret = os.environ.get("STRIPE_SECRET_KEY", "").strip()
+    allow_live_billing = os.environ.get("ALLOW_LIVE_BILLING", "").strip().lower() in {"1", "true", "yes"}
     required = (
         "STRIPE_SECRET_KEY",
         "STRIPE_WEBHOOK_SECRET",
         "STRIPE_PRICE_DEEPLATINUM",
         "STRIPE_PRICE_DEEPHARMAX",
         "DEEPHARMA_PUBLIC_URL",
-        # Exigir caminho explícito evita habilitar cobrança acidentalmente
-        # com o SQLite no filesystem efêmero padrão de uma hospedagem.
         "DEEPHARMA_DB_PATH",
     )
-    return enabled and all(os.environ.get(name, "").strip() for name in required)
+    # Cobrança exige confirmação explícita de armazenamento realmente persistente.
+    # Chaves live também exigem uma segunda confirmação explícita.
+    if secret.startswith("sk_live_") and not allow_live_billing:
+        return False
+    return enabled and durable_storage_ack and all(os.environ.get(name, "").strip() for name in required)
 
 
 def _stripe_request(path: str, fields: dict[str, str]) -> dict[str, Any]:
