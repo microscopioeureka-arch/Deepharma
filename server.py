@@ -352,7 +352,7 @@ def simular(req: SimularRequest, request: Request):
     limite = PLAN_LIMITS["Gratuito"]
     if usadas >= limite:
         raise HTTPException(status_code=429, detail="Você atingiu o limite de 5 simulações do plano Gratuito neste mês. Os planos pagos ainda não estão disponíveis para contratação.")
-    job_id = uuid.uuid4().hex[:12>
+    job_id = uuid.uuid4().hex[:12]
     with _lock:
         if any(job["estado"] == "executando" for job in JOBS.values()):
             raise HTTPException(status_code=429, detail="Há uma simulação em execução. Aguarde sua conclusão.")
