@@ -304,10 +304,24 @@ def billing_cancel():
         "<p>Nenhum plano foi ativado por esta visita.</p><a href='/'>Voltar ao Deepharma</a></body></html>")
 
 
-app.mount("/outputs", StaticFiles(directory=OUTPUT_DIR), name="outputs")
+# Output files are served through an account-ownership-checked route below.
 
 JOBS: dict[str, dict] = {}
 _lock = threading.Lock()
+
+
+@app.get("/outputs/{job_id}/{file_path:path}")
+def arquivo_resultado(job_id: str, file_path: str, request: Request):
+    with _lock:
+        job = JOBS.get(job_id)
+    if job is None or job.get("user_id") != request.session.get("user_id"):
+        raise HTTPException(status_code=404, detail="arquivo não encontrado")
+
+    job_dir = os.path.realpath(os.path.join(OUTPUT_DIR, job_id))
+    caminho = os.path.realpath(os.path.join(job_dir, file_path))
+    if os.path.commonpath([job_dir, caminho]) != job_dir or not os.path.isfile(caminho):
+        raise HTTPException(status_code=404, detail="arquivo não encontrado")
+    return FileResponse(caminho)
 
 
 class VirusCustomizado(BaseModel):
@@ -507,7 +521,7 @@ def simular(req: SimularRequest, request: Request):
     if not user_id:
         raise HTTPException(status_code=401, detail="Entre em uma conta para usar o simulador.")
 
-    job_id = uuid.uuid4().hex[:12]
+    job_id = uuid.uuid4().hex
     config = req.model_dump() if hasattr(req, "model_dump") else req.dict()
     # Mantém a configuração antiga do frontend compatível com o backend.
     config["gerar_bacterias"] = False
