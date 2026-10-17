@@ -140,6 +140,21 @@ app.mount("/outputs", StaticFiles(directory=OUTPUT_DIR), name="outputs")
 JOBS: dict[str, dict] = {}
 _lock = threading.Lock()
 
+# As cotas de planos pagos só devem ser liberadas após integração de cobrança.
+PLAN_LIMITS = {"Gratuito": 5, "EX": 25, "Platinum": 100, "X": 500}
+
+def _mes_atual():
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).strftime("%Y-%m")
+
+def _uso_mensal(request: Request):
+    mes = _mes_atual()
+    if request.session.get("sim_mes") != mes:
+        request.session["sim_mes"] = mes
+        request.session["sim_usadas"] = 0
+    usadas = max(0, int(request.session.get("sim_usadas", 0)))
+    return mes, usadas
+
 
 class VirusCustomizado(BaseModel):
     model_config = ConfigDict(allow_inf_nan=False)
@@ -324,8 +339,19 @@ def buscar_proteina_detalhe(accession: str, max_residuos: int = 40):
         raise HTTPException(status_code=404, detail=str(e))
 
 
+@app.get("/api/usage")
+def uso_mensal(request: Request):
+    mes, usadas = _uso_mensal(request)
+    limite = PLAN_LIMITS["Gratuito"]
+    return {"plano": "Gratuito", "mes": mes, "usadas": usadas, "limite": limite, "restantes": max(0, limite - usadas)}
+
+
 @app.post("/api/simular")
-def simular(req: SimularRequest):
+def simular(req: SimularRequest, request: Request):
+    mes, usadas = _uso_mensal(request)
+    limite = PLAN_LIMITS["Gratuito"]
+    if usadas >= limite:
+        raise HTTPException(status_code=429, detail="Você atingiu o limite de 5 simulações do plano Gratuito neste mês. Os planos pagos ainda não estão disponíveis para contratação.")
     job_id = uuid.uuid4().hex[:12]
     with _lock:
         if any(job["estado"] == "executando" for job in JOBS.values()):
@@ -348,7 +374,9 @@ def simular(req: SimularRequest):
             JOBS.pop(job_id, None)
         logging.exception("Falha ao iniciar job %s", job_id)
         raise HTTPException(status_code=503, detail="Não foi possível iniciar a execução.")
-    return {"job_id": job_id}
+    request.session["sim_mes"] = mes
+    request.session["sim_usadas"] = usadas + 1
+    return {"job_id": job_id, "uso_mensal": {"plano": "Gratuito", "usadas": usadas + 1, "limite": limite, "restantes": max(0, limite - usadas - 1)}}
 
 
 @app.get("/api/status/{job_id}")

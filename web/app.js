@@ -12,6 +12,18 @@ function safeURL(value) {
 // app.js — Simulador Molecular
 // Troque API por "https://SEU-BACKEND.onrender.com" se hospedar separado.
 const API = "";
+const elUsoMensal = document.getElementById("uso-mensal");
+
+async function atualizarUsoMensal() {
+  if (!elUsoMensal) return;
+  try {
+    const resposta = await fetchAutenticado(`${API}/api/usage`);
+    const uso = await lerJson(resposta, "Consultar cota mensal");
+    elUsoMensal.textContent = `Plano ${uso.plano}: ${uso.usadas} de ${uso.limite} simulações usadas neste mês (${uso.restantes} restantes).`;
+  } catch (e) {
+    elUsoMensal.textContent = "Não foi possível consultar a cota mensal agora.";
+  }
+}
 
 // Todas as chamadas são para a mesma origem. Se a sessão expirar,
 // manda o usuário de volta para a tela de login.
@@ -551,8 +563,9 @@ async function iniciarSimulacao() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(corpo),
     });
-    const { job_id } = await lerJson(r, "Iniciar simulação");
-    await acompanharJob(job_id);
+    const inicio = await lerJson(r, "Iniciar simulação");
+    await atualizarUsoMensal();
+    await acompanharJob(inicio.job_id);
   } catch (e) {
     setStatus("Erro ao iniciar simulação.");
     apendarLog([String(e)]);
@@ -761,4 +774,5 @@ function mostrarResultado(res) {
 
 // ── Arranque ─────────────────────────────────────────────────────────
 elBtnSimular.addEventListener("click", iniciarSimulacao);
+atualizarUsoMensal();
 carregarOpcoes();

@@ -124,3 +124,29 @@ hr { border: 0; border-top: 1px solid var(--border); }
   html { scroll-behavior: auto; }
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+
+/* Interações sutis ao passar o mouse */
+.cartao {
+  transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease;
+}
+.cartao:hover {
+  transform: translateY(-3px);
+  border-color: #3d5968;
+  box-shadow: 0 12px 30px #0000002b;
+}
+a, #btn-sair, .badge, .tag, .pill {
+  transition: color .2s ease, background-color .2s ease, border-color .2s ease, transform .2s ease;
+}
+a:hover { color: var(--green); }
+input, select, textarea {
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+input:hover, select:hover, textarea:hover {
+  box-shadow: 0 0 0 2px #8bc5dc12;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cartao, a, #btn-sair, .badge, .tag, .pill, input, select, textarea {
+    transition: none !important;
+  }
+  .cartao:hover { transform: none; }
+}
