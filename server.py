@@ -533,10 +533,10 @@ def simular(req: SimularRequest, request: Request):
     return {"job_id": job_id}
 
 @app.get("/api/status/{job_id}")
-def status(job_id: str):
+def status(job_id: str, request: Request):
     with _lock:
         job = JOBS.get(job_id)
-    if job is None:
+    if job is None or job.get("user_id") != request.session.get("user_id"):
         raise HTTPException(status_code=404, detail="job não encontrado")
     resultado = job.get("resultado")
     resultado_web = _prefixar_urls(resultado, job_id) if resultado else None
