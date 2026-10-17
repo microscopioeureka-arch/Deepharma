@@ -426,12 +426,14 @@ def criar_backbone_suave(pontos, cor=None, raio=0.13):
 
 
 def montar_cadeia(pontos, sequencia, cor_hb, cor_hf, indices_destaque=None, cor_destaque=None):
-    indices_destaque = set(indices_destaque or [])
-    geos = criar_backbone_suave(pontos, raio=0.12)
-    geos.extend(criar_geometria_aminoacido(p, sequencia[i], cor_hb, cor_hf,
-                                            destaque=(i in indices_destaque), cor_destaque=cor_destaque)
-                for i, p in enumerate(pontos))
-    return geos
+    """Monta uma cadeia proteica em fita contínua, sem esferas por resíduo."""
+    return criar_geometria_proteina(
+        pontos,
+        sequencia,
+        escala_visual=0.82,
+        indices_destaque=indices_destaque,
+        cor_destaque=cor_destaque,
+    )
 
 
 def gerar_pontos_enrolados(num_res, raio_interno, voltas=3.5, fase=0.0, offset=np.zeros(3)):
@@ -1668,26 +1670,135 @@ def gerar_proteina_nova(
     }
 
 
-def criar_geometria_proteina(pontos, sequencia, escala_visual=0.72):
+def criar_geometria_proteina(
+    pontos,
+    sequencia,
+    escala_visual=0.72,
+    indices_destaque=None,
+    cor_destaque=None,
+):
+    """Gera uma fita 3D contínua para a cadeia proteica, sem modelo de
+    esferas e palitos. A fita acompanha as coordenadas coarse-grained do
+    simulador; é uma representação visual esquemática, não uma estrutura
+    atômica experimental nem uma predição de dobramento validada.
+    Vermelho/verde continuam indicando o caráter hidrofóbico/hidrofílico
+    de cada trecho. Resíduos destacados (por exemplo, mutações didáticas)
+    recebem a cor de destaque, sem alterar a geometria da simulação.
     """
-    Visualiza a proteína com um estilo mais próximo de um visualizador
-    molecular real: um backbone (esqueleto) em tubo curvo e contínuo
-    (spline suave, não segmentos retos) representando a cadeia
-    principal, com as cadeias laterais dos resíduos como esferas
-    coloridas por hidrofobicidade:
-    - 🔴 Vermelho  → resíduo hidrofóbico (quer se esconder da água)
-    - 🟢 Verde     → resíduo hidrofílico (fica na superfície, interage com água)
-    """
-    geos = criar_backbone_suave(pontos, raio=0.15 * escala_visual)
-    for i, p in enumerate(pontos):
-        raio = raio_por_aa(sequencia[i]) * escala_visual * 0.88
-        esfera = trimesh.creation.icosphere(radius=raio, subdivisions=3)
-        cor = COR_HIDROFOBO if aa_e_hidrofobico(sequencia[i]) else COR_HIDROFILICO
-        esfera.visual.vertex_colors = cor.astype(np.uint8)
-        esfera.apply_translation(p)
-        geos.append(esfera)
-    return geos
+    pts = np.asarray(pontos, dtype=float)
+    seq = list(sequencia or [])
+    if pts.ndim != 2 or pts.shape[1] != 3 or len(pts) < 2 or not seq:
+        return []
 
+    n = min(len(pts), len(seq))
+    pts = pts[:n]
+    seq = seq[:n]
+    if n < 3:
+        return criar_backbone_suave(pts, raio=0.12 * escala_visual)
+
+    curva = _catmull_rom(pts, pontos_por_segmento=5)
+    if len(curva) < 3 or not np.isfinite(curva).all():
+        return criar_backbone_suave(pts, raio=0.12 * escala_visual)
+
+    tangentes = np.gradient(curva, axis=0)
+    comprimentos = np.linalg.norm(tangentes, axis=1)
+    comprimentos[comprimentos < 1e-9] = 1.0
+    tangentes = tangentes / comprimentos[:, None]
+
+    # Transporte paralelo aproximado: mantém a fita suave ao longo da curva
+    # e reduz torções bruscas quando a cadeia muda de direção.
+    normais = np.zeros_like(curva)
+    referencia = np.array([0.0, 0.0, 1.0])
+    if abs(float(np.dot(tangentes[0], referencia))) > 0.92:
+        referencia = np.array([0.0, 1.0, 0.0])
+    normal_inicial = np.cross(tangentes[0], referencia)
+    if np.linalg.norm(normal_inicial) < 1e-9:
+        normal_inicial = np.cross(tangentes[0], np.array([1.0, 0.0, 0.0]))
+    normal_inicial /= max(np.linalg.norm(normal_inicial), 1e-9)
+    normais[0] = normal_inicial
+
+    for i in range(1, len(curva)):
+        normal = normais[i - 1] - np.dot(normais[i - 1], tangentes[i]) * tangentes[i]
+        tamanho = np.linalg.norm(normal)
+        if tamanho < 1e-8:
+            ref = np.array([1.0, 0.0, 0.0])
+            if abs(float(np.dot(tangentes[i], ref))) > 0.92:
+                ref = np.array([0.0, 1.0, 0.0])
+            normal = np.cross(tangentes[i], ref)
+            tamanho = np.linalg.norm(normal)
+        normais[i] = normal / max(tamanho, 1e-9)
+
+    binormais = np.cross(tangentes, normais)
+    bnorms = np.linalg.norm(binormais, axis=1)
+    bnorms[bnorms < 1e-9] = 1.0
+    binormais = binormais / bnorms[:, None]
+
+    meia_largura = max(0.18, 0.62 * float(escala_visual))
+    meia_espessura = max(0.045, 0.11 * float(escala_visual))
+    vertices = []
+    cores = []
+    faces = []
+    destaques = set(indices_destaque or [])
+    cor_mutacao = np.asarray(
+        cor_destaque if cor_destaque is not None else [255, 205, 60, 255],
+        dtype=np.uint8,
+    )
+
+    def cor_residuo(indice):
+        if indice in destaques:
+            return cor_mutacao
+        aa = seq[indice]
+        cor = COR_HIDROFOBO if aa_e_hidrofobico(aa) else COR_HIDROFILICO
+        cor = np.asarray(cor, dtype=np.uint8)
+        return cor if len(cor) == 4 else np.append(cor[:3], 255).astype(np.uint8)
+
+    for i, centro in enumerate(curva):
+        nrm = normais[i]
+        bnr = binormais[i]
+        offsets = (
+            nrm * meia_largura + bnr * meia_espessura,
+            -nrm * meia_largura + bnr * meia_espessura,
+            -nrm * meia_largura - bnr * meia_espessura,
+            nrm * meia_largura - bnr * meia_espessura,
+        )
+        vertices.extend(centro + offset for offset in offsets)
+        indice_residuo = int(round(i * (n - 1) / max(1, len(curva) - 1)))
+        cor = cor_residuo(indice_residuo)
+        cores.extend([cor] * 4)
+
+    for i in range(len(curva) - 1):
+        base = i * 4
+        proxima = (i + 1) * 4
+        for j in range(4):
+            a = base + j
+            b = base + (j + 1) % 4
+            c = proxima + (j + 1) % 4
+            d = proxima + j
+            faces.extend(([a, b, c], [a, c, d]))
+
+    # Tampas pequenas evitam que a fita pareça aberta nas extremidades.
+    inicio_tampa = len(vertices)
+    vertices.append(curva[0])
+    cores.append(cor_residuo(0))
+    fim_tampa = len(vertices)
+    vertices.append(curva[-1])
+    cores.append(cor_residuo(n - 1))
+    ultima_base = (len(curva) - 1) * 4
+    for j in range(4):
+        faces.append([inicio_tampa, (j + 1) % 4, j])
+        faces.append([fim_tampa, ultima_base + j, ultima_base + (j + 1) % 4])
+
+    malha = trimesh.Trimesh(
+        vertices=np.asarray(vertices, dtype=float),
+        faces=np.asarray(faces, dtype=np.int64),
+        process=False,
+    )
+    malha.visual.vertex_colors = np.asarray(cores, dtype=np.uint8)
+    try:
+        malha.fix_normals()
+    except Exception:
+        pass
+    return [malha]
 
 def calcular_estatisticas_proteina(sequencia):
     massa = sum(AMINOACIDOS[a]["massa"] for a in sequencia)
