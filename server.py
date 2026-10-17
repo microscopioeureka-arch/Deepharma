@@ -601,6 +601,11 @@ def frontend_css():
     return FileResponse(os.path.join(WEB_DIR, "style.css"), media_type="text/css")
 
 
+@app.get("/design.css")
+def frontend_design_css():
+    return FileResponse(os.path.join(WEB_DIR, "design.css"), media_type="text/css")
+
+
 @app.get("/app.js")
 def frontend_js():
     return FileResponse(os.path.join(WEB_DIR, "app.js"), media_type="application/javascript")
