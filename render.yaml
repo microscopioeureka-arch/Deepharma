@@ -17,7 +17,11 @@ services:
       - key: DEEPHARMA_DB_PATH
         sync: false
       - key: ENABLE_BILLING
-        sync: false
+        value: "false"
+      - key: DEEPHARMA_STORAGE_DURABLE
+        value: "false"
+      - key: ALLOW_LIVE_BILLING
+        value: "false"
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
