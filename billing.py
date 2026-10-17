@@ -54,7 +54,7 @@ class WebhookSignatureError(Exception):
 
 def _db_path() -> str:
     return os.environ.get(
-        "DEEPhARMA_DB_PATH",
+        "DEEPHARMA_DB_PATH",
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "deepharma.sqlite3"),
     )
 
@@ -318,7 +318,7 @@ def billing_is_configured() -> bool:
         "STRIPE_WEBHOOK_SECRET",
         "STRIPE_PRICE_DEEPLATINUM",
         "STRIPE_PRICE_DEEPHARMAX",
-        "DEEPhARMA_PUBLIC_URL",
+        "DEEPHARMA_PUBLIC_URL",
     )
     return enabled and all(os.environ.get(name, "").strip() for name in required)
 
@@ -368,7 +368,7 @@ def create_checkout_session(user: dict[str, Any], plan: str) -> str:
     price_id = os.environ.get("STRIPE_PRICE_" + plan.upper(), "").strip()
     if not price_id:
         raise BillingConfigurationError("O preço deste plano ainda não está configurado.")
-    base = os.environ["DEEPhARMA_PUBLIC_URL"].rstrip("/")
+    base = os.environ["DEEPHARMA_PUBLIC_URL"].rstrip("/")
     user_id = str(user["id"])
     fields = {
         "mode": "subscription",
@@ -396,7 +396,7 @@ def create_customer_portal_session(user: dict[str, Any]) -> str:
     customer_id = user.get("stripe_customer_id")
     if not customer_id:
         raise BillingConfigurationError("Não há assinatura para gerenciar nesta conta.")
-    base = os.environ["DEEPhARMA_PUBLIC_URL"].rstrip("/")
+    base = os.environ["DEEPHARMA_PUBLIC_URL"].rstrip("/")
     result = _stripe_request("billing_portal/sessions", {
         "customer": str(customer_id),
         "return_url": base + "/simulador",
