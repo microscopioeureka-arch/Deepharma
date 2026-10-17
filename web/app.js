@@ -656,7 +656,7 @@ function mostrarResultado(res) {
     const s = p.estatisticas;
     const div = document.createElement("div");
     div.className = "item-resultado";
-    div.innerHTML = `<b>${escapeHTML(p.nome)}</b>
+    div.innerHTML = `<b>${escapeHTML(p.nome)}</b><br/><small>Visualização em fita esquemática; não representa uma predição estrutural experimental validada.</small>
       <br/><small>${s.n_residuos} resíduos &nbsp;·&nbsp;
         massa ≈ ${s.massa_total_da.toFixed(1)} Da &nbsp;·&nbsp;
         carga ${s.carga_liquida >= 0 ? "+" : ""}${s.carga_liquida.toFixed(2)}</small>
