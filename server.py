@@ -137,8 +137,13 @@ app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, same_site="lax"
 
 
 @app.get("/login", response_class=HTMLResponse)
-async def tela_login(request: Request):
+async def tela_login(request: Request, checkout: str = ""):
+    if checkout in {"deeplatinum", "deepharmax"}:
+        request.session["checkout_after_login"] = checkout
     if request.session.get("logged_in"):
+        pending = request.session.get("checkout_after_login")
+        if pending in {"deeplatinum", "deepharmax"}:
+            return RedirectResponse("/?checkout=" + pending, status_code=303)
         return RedirectResponse("/simulador", status_code=303)
     return HTMLResponse(pagina_login("", _csrf_token(request)))
 
@@ -156,13 +161,21 @@ async def fazer_login(request: Request, senha: str = Form(...), email: str = For
         user = billing.get_legacy_user()
     else:
         return HTMLResponse(pagina_login("Credenciais inválidas.", _csrf_token(request)), status_code=401)
+    pending = request.session.get("checkout_after_login")
     _iniciar_sessao_usuario(request, user)
+    if pending in {"deeplatinum", "deepharmax"}:
+        return RedirectResponse("/?checkout=" + pending, status_code=303)
     return RedirectResponse("/simulador", status_code=303)
 
 
 @app.get("/cadastro", response_class=HTMLResponse)
-async def tela_cadastro(request: Request):
+async def tela_cadastro(request: Request, checkout: str = ""):
+    if checkout in {"deeplatinum", "deepharmax"}:
+        request.session["checkout_after_login"] = checkout
     if request.session.get("logged_in"):
+        pending = request.session.get("checkout_after_login")
+        if pending in {"deeplatinum", "deepharmax"}:
+            return RedirectResponse("/?checkout=" + pending, status_code=303)
         return RedirectResponse("/simulador", status_code=303)
     return HTMLResponse(pagina_cadastro("", _csrf_token(request)))
 
@@ -185,7 +198,10 @@ async def criar_conta(request: Request, email: str = Form(...), senha: str = For
         return HTMLResponse(pagina_cadastro(str(exc), _csrf_token(request)), status_code=409)
     except ValueError as exc:
         return HTMLResponse(pagina_cadastro(str(exc), _csrf_token(request)), status_code=400)
+    pending = request.session.get("checkout_after_login")
     _iniciar_sessao_usuario(request, user)
+    if pending in {"deeplatinum", "deepharmax"}:
+        return RedirectResponse("/?checkout=" + pending, status_code=303)
     return RedirectResponse("/simulador", status_code=303)
 
 
