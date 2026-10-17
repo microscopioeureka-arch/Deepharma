@@ -319,6 +319,9 @@ def billing_is_configured() -> bool:
         "STRIPE_PRICE_DEEPLATINUM",
         "STRIPE_PRICE_DEEPHARMAX",
         "DEEPHARMA_PUBLIC_URL",
+        # Exigir caminho explícito evita habilitar cobrança acidentalmente
+        # com o SQLite no filesystem efêmero padrão de uma hospedagem.
+        "DEEPHARMA_DB_PATH",
     )
     return enabled and all(os.environ.get(name, "").strip() for name in required)
 
@@ -354,6 +357,76 @@ def _stripe_request(path: str, fields: dict[str, str]) -> dict[str, Any]:
     return parsed
 
 
+def _stripe_get(path: str) -> dict[str, Any]:
+    secret = os.environ.get("STRIPE_SECRET_KEY", "").strip()
+    if not secret:
+        raise BillingConfigurationError("A integração de pagamentos ainda não foi configurada.")
+    req = urllib.request.Request(
+        "https://api.stripe.com/v1/" + path.lstrip("/"),
+        headers={"Authorization": "Bearer " + secret},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as response:
+            parsed = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        raise BillingConfigurationError(
+            f"Não foi possível validar o preço configurado (HTTP {exc.code})."
+        ) from exc
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise BillingConfigurationError(
+            "Não foi possível validar os preços com o provedor."
+        ) from exc
+    if not isinstance(parsed, dict) or parsed.get("error"):
+        raise BillingConfigurationError("O provedor não retornou um preço válido.")
+    return parsed
+
+
+def _validated_monthly_price(plan: str) -> dict[str, Any]:
+    if plan not in {"deeplatinum", "deepharmax"}:
+        raise BillingConfigurationError("Plano inválido.")
+    price_id = os.environ.get("STRIPE_PRICE_" + plan.upper(), "").strip()
+    if not price_id:
+        raise BillingConfigurationError("O preço deste plano ainda não está configurado.")
+    price = _stripe_get("prices/" + urllib.parse.quote(price_id, safe=""))
+    recurring = price.get("recurring") or {}
+    currency = str(price.get("currency") or "").lower()
+    amount = price.get("unit_amount")
+    if price.get("active") is not True:
+        raise BillingConfigurationError("O preço Stripe deste plano não está ativo.")
+    if recurring.get("interval") != "month" or int(recurring.get("interval_count") or 0) != 1:
+        raise BillingConfigurationError("O preço Stripe precisa ser uma assinatura mensal.")
+    if currency not in {"usd", "brl", "eur"}:
+        raise BillingConfigurationError("Use um preço em USD, BRL ou EUR para este protótipo.")
+    if not isinstance(amount, int) or amount < 0:
+        raise BillingConfigurationError("O preço Stripe precisa ter um valor fixo configurado.")
+    return {
+        "id": price_id,
+        "currency": currency,
+        "amount": amount,
+        "interval": "month",
+    }
+
+
+def public_billing_status() -> dict[str, Any]:
+    """Retorna o estado e valores reais dos preços; nunca expõe chaves secretas."""
+    if not billing_is_configured():
+        return {"enabled": False, "plans": {}}
+    try:
+        plans = {}
+        for plan in ("deeplatinum", "deepharmax"):
+            price = _validated_monthly_price(plan)
+            plans[plan] = {
+                "label": PLANS[plan]["label"],
+                "currency": price["currency"],
+                "amount": price["amount"],
+                "interval": price["interval"],
+            }
+    except (BillingConfigurationError, ValueError, TypeError):
+        return {"enabled": False, "plans": {}}
+    return {"enabled": True, "plans": plans}
+
+
 def create_checkout_session(user: dict[str, Any], plan: str) -> str:
     if not billing_is_configured():
         raise BillingConfigurationError("Os pagamentos ainda não estão habilitados.")
@@ -365,9 +438,8 @@ def create_checkout_session(user: dict[str, Any], plan: str) -> str:
         raise BillingConfigurationError(
             "Você já tem uma assinatura ativa. Use o portal para gerenciá-la."
         )
-    price_id = os.environ.get("STRIPE_PRICE_" + plan.upper(), "").strip()
-    if not price_id:
-        raise BillingConfigurationError("O preço deste plano ainda não está configurado.")
+    price_info = _validated_monthly_price(plan)
+    price_id = price_info["id"]
     base = os.environ["DEEPHARMA_PUBLIC_URL"].rstrip("/")
     user_id = str(user["id"])
     fields = {
