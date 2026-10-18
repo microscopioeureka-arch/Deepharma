@@ -426,12 +426,14 @@ def criar_backbone_suave(pontos, cor=None, raio=0.13):
 
 
 def montar_cadeia(pontos, sequencia, cor_hb, cor_hf, indices_destaque=None, cor_destaque=None):
-    indices_destaque = set(indices_destaque or [])
-    geos = criar_backbone_suave(pontos, raio=0.12)
-    geos.extend(criar_geometria_aminoacido(p, sequencia[i], cor_hb, cor_hf,
-                                            destaque=(i in indices_destaque), cor_destaque=cor_destaque)
-                for i, p in enumerate(pontos))
-    return geos
+    """Monta uma cadeia proteica em fita contínua, sem esferas por resíduo."""
+    return criar_geometria_proteina(
+        pontos,
+        sequencia,
+        escala_visual=0.82,
+        indices_destaque=indices_destaque,
+        cor_destaque=cor_destaque,
+    )
 
 
 def gerar_pontos_enrolados(num_res, raio_interno, voltas=3.5, fase=0.0, offset=np.zeros(3)):
@@ -819,8 +821,21 @@ def montar_virus_3d(sequencia, seed, estilo, centro=np.zeros(3), genoma_customiz
     cor_cabeca_espicula = e.get("cor_cabeca_espicula_visual", np.array([255, 170, 185, 255], dtype=np.uint8))
     cor_glicano = e.get("cor_glicano", np.array([215, 255, 210, 235], dtype=np.uint8))
 
-    pontos_spike = gerar_pontos_enrolados(len(sequencia), raio_nucleo)
-    cor_mutacao = np.array([255, 210, 0, 255], dtype=np.uint8)
+    # A cadeia-alvo usada no docking fica fora da partícula, em vez de ser
+    # desenhada incorretamente no interior do envelope. É um candidato
+    # esquemático gerado pelo protótipo, não a proteína real do vírus.
+    raio_alvo = max(0.65, min(1.6, len(sequencia) * 0.055))
+    altura_alvo = float(e.get("altura_espicula", 1.0))
+    centro_alvo = np.array([
+        raio_envelope + max(0.8, altura_alvo * 0.7) + raio_alvo * 0.75,
+        0.0,
+        0.0,
+    ])
+    pontos_spike = gerar_pontos_enrolados(
+        len(sequencia), raio_alvo, voltas=2.0, fase=float(seed) * 0.013,
+        offset=centro_alvo,
+    )
+    cor_mutacao = np.array([255, 205, 60, 255], dtype=np.uint8)
     geos.extend(montar_cadeia(pontos_spike, sequencia, cor_spike, cor_spike,
                                indices_destaque=indices_mutados, cor_destaque=cor_mutacao))
 
@@ -841,11 +856,34 @@ def montar_virus_3d(sequencia, seed, estilo, centro=np.zeros(3), genoma_customiz
         raio_haste = e.get("raio_haste_espicula", e["raio_espicula"] * 0.35)
         raio_cabeca = e.get("raio_cabeca_espicula", e["raio_espicula"])
         n_glicanos = e.get("n_glicanos_por_espicula", 3)
+        morfologia = e.get("morfologia", "ficticio")
         for i, d in enumerate(direcoes):
-            geos.append(criar_espicula_realista(d, raio_envelope, e["altura_espicula"],
-                                                 raio_haste, raio_cabeca, cor_spike, cor_cabeca_espicula))
-            centro_cabeca = d * (raio_envelope + e["altura_espicula"] * 0.62 + raio_cabeca * 0.55)
-            geos.extend(criar_glicanos(centro_cabeca, raio_cabeca, n_glicanos, seed=seed * 1000 + i, cor=cor_glicano))
+            altura_i = float(e["altura_espicula"])
+            haste_i = float(raio_haste)
+            cabeca_i = float(raio_cabeca)
+            glicanos_i = int(n_glicanos)
+            cor_cabeca_i = cor_cabeca_espicula
+
+            # Influenza tem classes distintas de glicoproteínas de superfície
+            # (HA abundante e NA menos abundante); a alternância abaixo é
+            # apenas uma codificação visual simplificada dessas duas classes.
+            if morfologia == "influenza" and i % 6 == 0:
+                altura_i *= 0.62
+                haste_i *= 0.88
+                cabeca_i *= 0.72
+                glicanos_i = max(0, glicanos_i - 1)
+
+            geos.append(criar_espicula_realista(
+                d, raio_envelope, altura_i, haste_i, cabeca_i,
+                cor_spike, cor_cabeca_i,
+            ))
+            centro_cabeca = d * (
+                raio_envelope + altura_i * 0.62 + cabeca_i * 0.55
+            )
+            geos.extend(criar_glicanos(
+                centro_cabeca, cabeca_i, glicanos_i,
+                seed=seed * 1000 + i, cor=cor_glicano,
+            ))
 
     if e.get("forma_alongada", False):
         fator = e.get("fator_alongamento", 1.6)
@@ -853,8 +891,10 @@ def montar_virus_3d(sequencia, seed, estilo, centro=np.zeros(3), genoma_customiz
         S[2, 2] = fator
         for g in geos:
             g.apply_transform(S)
+        pontos_spike = pontos_spike @ S[:3, :3].T
     for g in geos:
         g.apply_translation(centro)
+    pontos_spike = pontos_spike + np.asarray(centro, dtype=float)
     return geos, pontos_spike
 
 
@@ -1222,6 +1262,7 @@ VIRUS_REAIS_PRESETS = {
             "GUUCUCUAAACGAACUUUAAAAUCUGUGUG"
         ),
         "fonte": "NCBI RefSeq NC_045512.2 (primeiras ~90 bases)",
+        "morfologia": "coronavirus",
     },
     "hiv": {
         "nome": "HIV-1",
@@ -1231,6 +1272,7 @@ VIRUS_REAIS_PRESETS = {
             "CUGCUUAAGCCUCAAUAAAGCUUGCCUUGAG"
         ),
         "fonte": "NCBI RefSeq NC_001802.1, isolado HXB2 (primeiras ~90 bases)",
+        "morfologia": "lentivirus",
     },
     "influenza": {
         "nome": "Influenza A (H1N1)",
@@ -1240,8 +1282,34 @@ VIRUS_REAIS_PRESETS = {
             "ACCGCAAAUGCAGACACAUUAUGUAUAGGUU"
         ),
         "fonte": "GenBank CY083910.1, gene da hemaglutinina (primeiras ~90 bases)",
+        "morfologia": "influenza",
     },
 }
+
+# Perfis de morfologia externa para presets nomeados. Os parâmetros são
+# escalas visuais esquemáticas, não dimensões em escala molecular nem uma
+# reconstrução atômica. Genoma parcial não é usado para inferir a estrutura 3D.
+PERFIS_MORFOLOGICOS_REAIS = {
+    "covid19": {
+        "morfologia": "coronavirus", "raio_envelope": 6.0,
+        "n_espiculas": 36, "raio_espicula": 0.24, "altura_espicula": 1.45,
+        "raio_cabeca_espicula": 0.34, "n_glicanos_por_espicula": 3,
+        "amplitude_organica": 0.035, "forma_alongada": False, "fator_alongamento": 1.0,
+    },
+    "hiv": {
+        "morfologia": "lentivirus", "raio_envelope": 5.2,
+        "n_espiculas": 14, "raio_espicula": 0.15, "altura_espicula": 0.92,
+        "raio_cabeca_espicula": 0.23, "n_glicanos_por_espicula": 4,
+        "amplitude_organica": 0.035, "forma_alongada": False, "fator_alongamento": 1.0,
+    },
+    "influenza": {
+        "morfologia": "influenza", "raio_envelope": 5.5,
+        "n_espiculas": 72, "raio_espicula": 0.13, "altura_espicula": 0.84,
+        "raio_cabeca_espicula": 0.16, "n_glicanos_por_espicula": 1,
+        "amplitude_organica": 0.045, "forma_alongada": False, "fator_alongamento": 1.0,
+    },
+}
+
 
 BACTERIA_MODELOS_BASE = [
     {"nome": "Bacteria-Ficticia-A", "seed": 601, "forma": "bacilo",
@@ -1668,26 +1736,135 @@ def gerar_proteina_nova(
     }
 
 
-def criar_geometria_proteina(pontos, sequencia, escala_visual=0.72):
+def criar_geometria_proteina(
+    pontos,
+    sequencia,
+    escala_visual=0.72,
+    indices_destaque=None,
+    cor_destaque=None,
+):
+    """Gera uma fita 3D contínua para a cadeia proteica, sem modelo de
+    esferas e palitos. A fita acompanha as coordenadas coarse-grained do
+    simulador; é uma representação visual esquemática, não uma estrutura
+    atômica experimental nem uma predição de dobramento validada.
+    Vermelho/verde continuam indicando o caráter hidrofóbico/hidrofílico
+    de cada trecho. Resíduos destacados (por exemplo, mutações didáticas)
+    recebem a cor de destaque, sem alterar a geometria da simulação.
     """
-    Visualiza a proteína com um estilo mais próximo de um visualizador
-    molecular real: um backbone (esqueleto) em tubo curvo e contínuo
-    (spline suave, não segmentos retos) representando a cadeia
-    principal, com as cadeias laterais dos resíduos como esferas
-    coloridas por hidrofobicidade:
-    - 🔴 Vermelho  → resíduo hidrofóbico (quer se esconder da água)
-    - 🟢 Verde     → resíduo hidrofílico (fica na superfície, interage com água)
-    """
-    geos = criar_backbone_suave(pontos, raio=0.15 * escala_visual)
-    for i, p in enumerate(pontos):
-        raio = raio_por_aa(sequencia[i]) * escala_visual * 0.88
-        esfera = trimesh.creation.icosphere(radius=raio, subdivisions=3)
-        cor = COR_HIDROFOBO if aa_e_hidrofobico(sequencia[i]) else COR_HIDROFILICO
-        esfera.visual.vertex_colors = cor.astype(np.uint8)
-        esfera.apply_translation(p)
-        geos.append(esfera)
-    return geos
+    pts = np.asarray(pontos, dtype=float)
+    seq = list(sequencia or [])
+    if pts.ndim != 2 or pts.shape[1] != 3 or len(pts) < 2 or not seq:
+        return []
 
+    n = min(len(pts), len(seq))
+    pts = pts[:n]
+    seq = seq[:n]
+    if n < 3:
+        return criar_backbone_suave(pts, raio=0.12 * escala_visual)
+
+    curva = _catmull_rom(pts, pontos_por_segmento=5)
+    if len(curva) < 3 or not np.isfinite(curva).all():
+        return criar_backbone_suave(pts, raio=0.12 * escala_visual)
+
+    tangentes = np.gradient(curva, axis=0)
+    comprimentos = np.linalg.norm(tangentes, axis=1)
+    comprimentos[comprimentos < 1e-9] = 1.0
+    tangentes = tangentes / comprimentos[:, None]
+
+    # Transporte paralelo aproximado: mantém a fita suave ao longo da curva
+    # e reduz torções bruscas quando a cadeia muda de direção.
+    normais = np.zeros_like(curva)
+    referencia = np.array([0.0, 0.0, 1.0])
+    if abs(float(np.dot(tangentes[0], referencia))) > 0.92:
+        referencia = np.array([0.0, 1.0, 0.0])
+    normal_inicial = np.cross(tangentes[0], referencia)
+    if np.linalg.norm(normal_inicial) < 1e-9:
+        normal_inicial = np.cross(tangentes[0], np.array([1.0, 0.0, 0.0]))
+    normal_inicial /= max(np.linalg.norm(normal_inicial), 1e-9)
+    normais[0] = normal_inicial
+
+    for i in range(1, len(curva)):
+        normal = normais[i - 1] - np.dot(normais[i - 1], tangentes[i]) * tangentes[i]
+        tamanho = np.linalg.norm(normal)
+        if tamanho < 1e-8:
+            ref = np.array([1.0, 0.0, 0.0])
+            if abs(float(np.dot(tangentes[i], ref))) > 0.92:
+                ref = np.array([0.0, 1.0, 0.0])
+            normal = np.cross(tangentes[i], ref)
+            tamanho = np.linalg.norm(normal)
+        normais[i] = normal / max(tamanho, 1e-9)
+
+    binormais = np.cross(tangentes, normais)
+    bnorms = np.linalg.norm(binormais, axis=1)
+    bnorms[bnorms < 1e-9] = 1.0
+    binormais = binormais / bnorms[:, None]
+
+    meia_largura = max(0.18, 0.62 * float(escala_visual))
+    meia_espessura = max(0.045, 0.11 * float(escala_visual))
+    vertices = []
+    cores = []
+    faces = []
+    destaques = set(indices_destaque or [])
+    cor_mutacao = np.asarray(
+        cor_destaque if cor_destaque is not None else [255, 205, 60, 255],
+        dtype=np.uint8,
+    )
+
+    def cor_residuo(indice):
+        if indice in destaques:
+            return cor_mutacao
+        aa = seq[indice]
+        cor = COR_HIDROFOBO if aa_e_hidrofobico(aa) else COR_HIDROFILICO
+        cor = np.asarray(cor, dtype=np.uint8)
+        return cor if len(cor) == 4 else np.append(cor[:3], 255).astype(np.uint8)
+
+    for i, centro in enumerate(curva):
+        nrm = normais[i]
+        bnr = binormais[i]
+        offsets = (
+            nrm * meia_largura + bnr * meia_espessura,
+            -nrm * meia_largura + bnr * meia_espessura,
+            -nrm * meia_largura - bnr * meia_espessura,
+            nrm * meia_largura - bnr * meia_espessura,
+        )
+        vertices.extend(centro + offset for offset in offsets)
+        indice_residuo = int(round(i * (n - 1) / max(1, len(curva) - 1)))
+        cor = cor_residuo(indice_residuo)
+        cores.extend([cor] * 4)
+
+    for i in range(len(curva) - 1):
+        base = i * 4
+        proxima = (i + 1) * 4
+        for j in range(4):
+            a = base + j
+            b = base + (j + 1) % 4
+            c = proxima + (j + 1) % 4
+            d = proxima + j
+            faces.extend(([a, b, c], [a, c, d]))
+
+    # Tampas pequenas evitam que a fita pareça aberta nas extremidades.
+    inicio_tampa = len(vertices)
+    vertices.append(curva[0])
+    cores.append(cor_residuo(0))
+    fim_tampa = len(vertices)
+    vertices.append(curva[-1])
+    cores.append(cor_residuo(n - 1))
+    ultima_base = (len(curva) - 1) * 4
+    for j in range(4):
+        faces.append([inicio_tampa, (j + 1) % 4, j])
+        faces.append([fim_tampa, ultima_base + j, ultima_base + (j + 1) % 4])
+
+    malha = trimesh.Trimesh(
+        vertices=np.asarray(vertices, dtype=float),
+        faces=np.asarray(faces, dtype=np.int64),
+        process=False,
+    )
+    malha.visual.vertex_colors = np.asarray(cores, dtype=np.uint8)
+    try:
+        malha.fix_normals()
+    except Exception:
+        pass
+    return [malha]
 
 def calcular_estatisticas_proteina(sequencia):
     massa = sum(AMINOACIDOS[a]["massa"] for a in sequencia)
@@ -2767,7 +2944,10 @@ def executar_simulacao(config: dict, output_dir: str, progresso=None) -> dict:
             scene_virus = trimesh.Scene()
             for g in geos:
                 scene_virus.add_geometry(g)
-            scene_virus.apply_translation(-scene_virus.centroid)
+            deslocamento_centro = -np.asarray(scene_virus.centroid, dtype=float)
+            scene_virus.apply_translation(deslocamento_centro)
+            # Mantém o alvo de docking no mesmo referencial da malha GLB centrada.
+            pontos_spike = pontos_spike + deslocamento_centro
             nome_arq = slug(v["nome"])
             glb = exportar_glb(scene_virus, os.path.join(dir_virus, f"virus_{nome_arq}_{run_id}.glb"))
             v["pontos_alvo"] = pontos_spike
@@ -2777,6 +2957,10 @@ def executar_simulacao(config: dict, output_dir: str, progresso=None) -> dict:
             resultado["virus"].append({
                 "nome": v["nome"],
                 "glb": os.path.relpath(glb, output_dir) if glb else None,
+                "morfologia": v["estilo"].get("morfologia", "ficticio"),
+                "observacao_cientifica": (
+                    "Representação morfológica esquemática; não é uma reconstrução atômica validada."
+                ),
             })
             log(f"  {v['nome']} pronto.")
 
@@ -2797,8 +2981,9 @@ def executar_simulacao(config: dict, output_dir: str, progresso=None) -> dict:
             bases_customizadas = parse_sequencia_acido_nucleico(vc["sequencia_acido"], tipo_acido)
             nome_vc = vc.get("nome") or "Virus-Customizado"
             seed_vc = int(vc.get("seed", 909))
+            perfil_morfologico = PERFIS_MORFOLOGICOS_REAIS.get(preset_key or "", {})
             n_res_spike_vc = int(vc.get("n_res_spike", 15) * (0.6 if modo_rapido else 1.0))
-            raio_envelope_vc = float(vc.get("raio_envelope", 6.0))
+            raio_envelope_vc = float(perfil_morfologico.get("raio_envelope", vc.get("raio_envelope", 6.0)))
             v = {
                 "nome": nome_vc, "seed": seed_vc,
                 "raio_envelope": raio_envelope_vc, "raio_nucleo": round(raio_envelope_vc * 0.62, 2),
@@ -2812,14 +2997,19 @@ def executar_simulacao(config: dict, output_dir: str, progresso=None) -> dict:
                 "raio_envelope": v["raio_envelope"], "raio_nucleo": v["raio_nucleo"],
                 "cor_envelope": PALETA_ENVELOPES[seed_vc % len(PALETA_ENVELOPES)],
                 "num_bases_rna": len(bases_customizadas),
-                "n_espiculas": int(vc.get("n_espiculas", 30)) if not modo_rapido else int(vc.get("n_espiculas", 30)) // 2,
-                "raio_espicula": float(vc.get("raio_espicula", 0.32)),
-                "altura_espicula": float(vc.get("altura_espicula", 1.0)),
-                "raio_cabeca_espicula": float(vc.get("raio_cabeca_espicula", 0.36)),
-                "n_glicanos_por_espicula": int(vc.get("n_glicanos_por_espicula", 3)),
-                "amplitude_organica": float(vc.get("amplitude_organica", 0.07)),
-                "forma_alongada": bool(vc.get("forma_alongada", False)),
-                "fator_alongamento": float(vc.get("fator_alongamento", 1.0)),
+                "morfologia": perfil_morfologico.get("morfologia", "personalizado"),
+                "n_espiculas": (
+                    int(perfil_morfologico.get("n_espiculas", vc.get("n_espiculas", 30)))
+                    if not modo_rapido else
+                    max(1, int(perfil_morfologico.get("n_espiculas", vc.get("n_espiculas", 30))) // 2)
+                ),
+                "raio_espicula": float(perfil_morfologico.get("raio_espicula", vc.get("raio_espicula", 0.32))),
+                "altura_espicula": float(perfil_morfologico.get("altura_espicula", vc.get("altura_espicula", 1.0))),
+                "raio_cabeca_espicula": float(perfil_morfologico.get("raio_cabeca_espicula", vc.get("raio_cabeca_espicula", 0.36))),
+                "n_glicanos_por_espicula": int(perfil_morfologico.get("n_glicanos_por_espicula", vc.get("n_glicanos_por_espicula", 3))),
+                "amplitude_organica": float(perfil_morfologico.get("amplitude_organica", vc.get("amplitude_organica", 0.07))),
+                "forma_alongada": bool(perfil_morfologico.get("forma_alongada", vc.get("forma_alongada", False))),
+                "fator_alongamento": float(perfil_morfologico.get("fator_alongamento", vc.get("fator_alongamento", 1.0))),
                 "cor_spike": cores_internas["spike"], "cor_cabeca_espicula_visual": cores_internas["cabeca"],
                 "cor_glicano": cores_internas["glicano"], "cor_nucleo_interno": cores_internas["nucleo"],
             }
@@ -2848,7 +3038,10 @@ def executar_simulacao(config: dict, output_dir: str, progresso=None) -> dict:
             scene_virus = trimesh.Scene()
             for g in geos:
                 scene_virus.add_geometry(g)
-            scene_virus.apply_translation(-scene_virus.centroid)
+            deslocamento_centro = -np.asarray(scene_virus.centroid, dtype=float)
+            scene_virus.apply_translation(deslocamento_centro)
+            # Mantém o alvo de docking no mesmo referencial da malha GLB centrada.
+            pontos_spike = pontos_spike + deslocamento_centro
             nome_arq = slug(v["nome"])
             glb = exportar_glb(scene_virus, os.path.join(dir_virus, f"virus_{nome_arq}_{run_id}.glb"))
             v["pontos_alvo"] = pontos_spike
@@ -2859,6 +3052,12 @@ def executar_simulacao(config: dict, output_dir: str, progresso=None) -> dict:
                 "nome": v["nome"], "customizado": True,
                 "genoma": f"{tipo_acido}: {''.join(bases_customizadas)}",
                 "glb": os.path.relpath(glb, output_dir) if glb else None,
+                "morfologia": v["estilo"].get("morfologia", "personalizado"),
+                "observacao_cientifica": (
+                    "Morfologia representada de forma esquemática; não é uma reconstrução atômica validada."
+                    if preset_key in VIRUS_REAIS_PRESETS else
+                    "O genoma informado não permite reconstruir a estrutura viral real; a geometria 3D é esquemática."
+                ),
                 "imagem_referencia": imagem_ref_info,
             })
             log(f"  {nome_vc} (genoma customizado, {tipo_acido}, {len(bases_customizadas)} bases) pronto.")
