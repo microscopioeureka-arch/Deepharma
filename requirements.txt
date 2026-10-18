@@ -15,3 +15,4 @@ pygltflib         # exportação dos modelos 3D em .glb
 rdkit             # cálculos mais precisos de propriedades dos fármacos
 python-multipart
 itsdangerous
+psycopg[binary]>=3.2,<4  # PostgreSQL for durable account and subscription storage
