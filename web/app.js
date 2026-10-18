@@ -12,18 +12,6 @@ function safeURL(value) {
 // app.js — Simulador Molecular
 // Troque API por "https://SEU-BACKEND.onrender.com" se hospedar separado.
 const API = "";
-const elUsoMensal = document.getElementById("uso-mensal");
-
-async function atualizarUsoMensal() {
-  if (!elUsoMensal) return;
-  try {
-    const resposta = await fetchAutenticado(`${API}/api/usage`);
-    const uso = await lerJson(resposta, "Consultar cota mensal");
-    elUsoMensal.textContent = `Plano ${uso.plano}: ${uso.usadas} de ${uso.limite} simulações usadas neste mês (${uso.restantes} restantes).`;
-  } catch (e) {
-    elUsoMensal.textContent = "Não foi possível consultar a cota mensal agora.";
-  }
-}
 
 // Todas as chamadas são para a mesma origem. Se a sessão expirar,
 // manda o usuário de volta para a tela de login.
@@ -35,6 +23,45 @@ async function fetchAutenticado(url, options) {
   }
   return resposta;
 }
+async function atualizarUsoMensal() {
+  const el = document.getElementById("uso-mensal");
+  if (!el) return;
+  try {
+    const resposta = await fetchAutenticado(`${API}/api/usage`);
+    const uso = await lerJson(resposta, "Consultar plano e cota");
+    if (uso.limit === null) {
+      el.textContent = `Plano ${uso.plan_label}: ${uso.used} simulações registradas em ${uso.period}; sem limite de quantidade.`;
+    } else {
+      el.textContent = `Plano ${uso.plan_label}: ${uso.used}/${uso.limit} simulações em ${uso.period}; restam ${uso.remaining}.`;
+    }
+    const portal = document.getElementById("btn-gerenciar-assinatura");
+    if (portal) portal.hidden = !(uso.billing_enabled && uso.can_manage_subscription);
+  } catch (_) {
+    el.textContent = "Não foi possível consultar o uso agora.";
+  }
+}
+
+async function abrirPortalAssinatura() {
+  const botao = document.getElementById("btn-gerenciar-assinatura");
+  if (botao) botao.disabled = true;
+  try {
+    const tokenResp = await fetch("/api/csrf");
+    const tokenData = await lerJson(tokenResp, "Obter token de segurança");
+    const resposta = await fetchAutenticado(`${API}/api/billing/portal`, {
+      method: "POST",
+      headers: { "X-CSRF-Token": tokenData.csrf_token }
+    });
+    const data = await lerJson(resposta, "Abrir gerenciamento de assinatura");
+    if (!data.url) throw new Error("O provedor não retornou um endereço para gerenciar a assinatura.");
+    window.location.assign(data.url);
+  } catch (erro) {
+    setStatus("Não foi possível abrir o gerenciamento da assinatura.");
+    apendarLog([String(erro)]);
+  } finally {
+    if (botao) botao.disabled = false;
+  }
+}
+
 
 // Lê JSON somente depois de verificar o status. Se o proxy devolver uma
 // página HTML (por exemplo, o 502 padrão do Render), evita o erro genérico
@@ -563,13 +590,13 @@ async function iniciarSimulacao() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(corpo),
     });
-    const inicio = await lerJson(r, "Iniciar simulação");
-    await atualizarUsoMensal();
-    await acompanharJob(inicio.job_id);
+    const { job_id } = await lerJson(r, "Iniciar simulação");
+    await acompanharJob(job_id);
   } catch (e) {
     setStatus("Erro ao iniciar simulação.");
     apendarLog([String(e)]);
   } finally {
+    void atualizarUsoMensal();
     elBtnSimular.disabled = false;
     elBtnSimular.textContent = "▶ Rodar simulação";
   }
@@ -629,7 +656,7 @@ function mostrarResultado(res) {
     const s = p.estatisticas;
     const div = document.createElement("div");
     div.className = "item-resultado";
-    div.innerHTML = `<b>${escapeHTML(p.nome)}</b>
+    div.innerHTML = `<b>${escapeHTML(p.nome)}</b><br/><small>Visualização em fita esquemática; não representa uma predição estrutural experimental validada.</small>
       <br/><small>${s.n_residuos} resíduos &nbsp;·&nbsp;
         massa ≈ ${s.massa_total_da.toFixed(1)} Da &nbsp;·&nbsp;
         carga ${s.carga_liquida >= 0 ? "+" : ""}${s.carga_liquida.toFixed(2)}</small>
@@ -651,6 +678,8 @@ function mostrarResultado(res) {
     div.className = "item-resultado";
     div.innerHTML = `${escapeHTML(v.nome)}
       ${v.customizado ? `<small>(genoma: ${escapeHTML(v.genoma)})</small>` : ""}
+      ${v.morfologia ? `<br/><small>Morfologia representada: ${escapeHTML(v.morfologia)}</small>` : ""}
+      ${v.observacao_cientifica ? `<br/><small>${escapeHTML(v.observacao_cientifica)}</small>` : ""}
       ${v.imagem_referencia ? `
         <br/>
         <div class="ref-imagem">
@@ -774,5 +803,6 @@ function mostrarResultado(res) {
 
 // ── Arranque ─────────────────────────────────────────────────────────
 elBtnSimular.addEventListener("click", iniciarSimulacao);
-atualizarUsoMensal();
+document.getElementById("btn-gerenciar-assinatura")?.addEventListener("click", abrirPortalAssinatura);
 carregarOpcoes();
+void atualizarUsoMensal();
