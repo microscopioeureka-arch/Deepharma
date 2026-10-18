@@ -38,7 +38,8 @@ Para um ambiente Stripe de teste, configure no ambiente do servidor — nunca no
 - `STRIPE_PRICE_DEEPLATINUM`: ID de um preço ativo, recorrente, mensal (intervalo de 1 mês) para Deeplatinum.
 - `STRIPE_PRICE_DEEPHARMAX`: ID de um preço ativo, recorrente, mensal (intervalo de 1 mês) para DeepharmaX.
 - `DEEPHARMA_PUBLIC_URL`: origem pública completa, por exemplo `https://seu-dominio.example`, sem barra final.
-- `DEEPHARMA_DB_PATH`: caminho absoluto para o arquivo SQLite em **armazenamento persistente**.
+- `DATABASE_URL` ou `DEEPHARMA_DATABASE_URL`: URL de conexão de um PostgreSQL realmente persistente (recomendado em produção). O código usa PostgreSQL quando uma dessas variáveis está preenchida.
+- `DEEPHARMA_DB_PATH`: caminho absoluto para SQLite apenas em desenvolvimento local ou quando o serviço tiver disco persistente. Não use SQLite no filesystem efêmero do Render Free para assinaturas.
 - `DEEPHARMA_STORAGE_DURABLE=true`: confirmação explícita do responsável pela implantação de que o caminho aponta para armazenamento durável. O código não consegue verificar sozinho a durabilidade física desse caminho.
 - `ALLOW_LIVE_BILLING=true`: confirmação separada exigida se `STRIPE_SECRET_KEY` começar com `sk_live_`. Mantenha em `false` até que o armazenamento, testes, políticas e autorização para cobrança estejam prontos.
 
