@@ -11,6 +11,8 @@ import billing
 
 _ENV_NAMES = (
     "DEEPHARMA_DB_PATH",
+    "DEEPHARMA_DATABASE_URL",
+    "DATABASE_URL",
     "DEEPHARMA_STORAGE_DURABLE",
     "ALLOW_LIVE_BILLING",
     "ENABLE_BILLING",
@@ -159,6 +161,78 @@ class BillingTests(unittest.TestCase):
         with self.assertRaises(billing.WebhookSignatureError):
             billing.verify_stripe_signature(payload, header, now=timestamp + 301)
 
+
+    def test_postgres_url_can_enable_configured_test_prices_without_sqlite_path(self):
+        os.environ.update({
+            "ENABLE_BILLING": "true",
+            "STRIPE_SECRET_KEY": "sk_test_placeholder",
+            "STRIPE_WEBHOOK_SECRET": "whsec_test_placeholder",
+            "STRIPE_PRICE_DEEPLATINUM": "price_platinum",
+            "STRIPE_PRICE_DEEPHARMAX": "price_max",
+            "DEEPHARMA_PUBLIC_URL": "https://example.test",
+            "DATABASE_URL": "postgresql://user:pass@db.example.test/deepharma",
+            "DEEPHARMA_DB_PATH": "",
+            "DEEPHARMA_STORAGE_DURABLE": "true",
+        })
+        price = {
+            "id": "price_platinum",
+            "active": True,
+            "currency": "brl",
+            "unit_amount": 3900,
+            "recurring": {"interval": "month", "interval_count": 1},
+        }
+        with mock.patch.object(
+            billing, "_stripe_get",
+            side_effect=[price, {**price, "id": "price_max", "unit_amount": 7900}],
+        ):
+            result = billing.public_billing_status()
+        self.assertTrue(result["enabled"])
+        self.assertEqual(result["plans"]["deeplatinum"]["amount"], 3900)
+
+    def test_postgres_adapter_converts_parameter_placeholders(self):
+        class FakeConnection:
+            def __init__(self):
+                self.query = None
+                self.params = None
+
+            def execute(self, query, params):
+                self.query = query
+                self.params = params
+                return "cursor"
+
+        fake = FakeConnection()
+        adapter = billing._PostgresConnectionAdapter(fake)
+        result = adapter.execute("SELECT ? WHERE user_id = ?", (1, 2))
+        self.assertEqual(result, "cursor")
+        self.assertEqual(fake.query, "SELECT %s WHERE user_id = %s")
+        self.assertEqual(fake.params, (1, 2))
+
+    def test_postgres_schema_uses_portable_identity_columns(self):
+        statements = []
+
+        class FakeCursor:
+            rowcount = 1
+
+        class FakeConnection:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, traceback):
+                return False
+
+            def execute(self, query, params=()):
+                statements.append(query)
+                return FakeCursor()
+
+        with mock.patch.object(billing, "_using_postgres", return_value=True), \
+             mock.patch.object(billing, "_connect", return_value=FakeConnection()):
+            billing.init_db()
+
+        combined = "\\n".join(statements)
+        self.assertIn("BIGSERIAL PRIMARY KEY", combined)
+        self.assertIn("user_id BIGINT NOT NULL", combined)
+        self.assertNotIn("AUTOINCREMENT", combined)
+        self.assertIn("ON CONFLICT (email) DO NOTHING", combined)
 
 if __name__ == "__main__":
     unittest.main()
