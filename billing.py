@@ -16,8 +16,9 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Iterator
 
 LEGACY_EMAIL = "legacy-access@invalid.local"
 ACTIVE_SUBSCRIPTION_STATUSES = {"active", "trialing"}
@@ -59,43 +60,94 @@ def _db_path() -> str:
     )
 
 
-def _connect() -> sqlite3.Connection:
-    conn = sqlite3.connect(_db_path(), timeout=10)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    conn.execute("PRAGMA busy_timeout = 10000")
-    return conn
+def _database_url() -> str:
+    """URL de PostgreSQL configurada para produção; vazia usa SQLite local."""
+    return (
+        os.environ.get("DEEPHARMA_DATABASE_URL", "").strip()
+        or os.environ.get("DATABASE_URL", "").strip()
+    )
+
+
+def _using_postgres() -> bool:
+    return bool(_database_url())
+
+
+class _PostgresConnectionAdapter:
+    """Adapta placeholders e preserva o retorno de cursor do psycopg."""
+
+    def __init__(self, connection: Any):
+        self._connection = connection
+
+    def execute(self, sql: str, params: tuple | list = ()):
+        return self._connection.execute(sql.replace("?", "%s"), params)
+
+
+@contextmanager
+def _connect() -> Iterator[Any]:
+    """Conexão transacional com PostgreSQL ou SQLite local."""
+    database_url = _database_url()
+    if database_url:
+        try:
+            import psycopg
+            from psycopg.rows import dict_row
+        except ImportError as exc:
+            raise RuntimeError(
+                "PostgreSQL está configurado, mas falta instalar psycopg[binary]."
+            ) from exc
+        raw = psycopg.connect(database_url, row_factory=dict_row, connect_timeout=10)
+        conn = _PostgresConnectionAdapter(raw)
+    else:
+        raw = sqlite3.connect(_db_path(), timeout=10)
+        raw.row_factory = sqlite3.Row
+        raw.execute("PRAGMA foreign_keys = ON")
+        raw.execute("PRAGMA busy_timeout = 10000")
+        conn = raw
+
+    try:
+        yield conn
+        raw.commit()
+    except BaseException:
+        raw.rollback()
+        raise
+    finally:
+        raw.close()
 
 
 def init_db() -> None:
-    """Cria tabelas locais sem substituir nem apagar dados existentes."""
+    """Cria tabelas sem substituir nem apagar dados existentes."""
+    users_schema = """
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL UNIQUE,
+            password_salt TEXT NOT NULL,
+            password_hash TEXT NOT NULL,
+            plan TEXT NOT NULL DEFAULT 'free',
+            subscription_status TEXT NOT NULL DEFAULT 'inactive',
+            stripe_customer_id TEXT UNIQUE,
+            stripe_subscription_id TEXT UNIQUE,
+            created_at INTEGER NOT NULL
+        )
+    """
+    usage_schema = """
+        CREATE TABLE IF NOT EXISTS simulation_usage (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            job_id TEXT NOT NULL UNIQUE,
+            created_at INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'started'
+        )
+    """
+    if _using_postgres():
+        users_schema = users_schema.replace(
+            "INTEGER PRIMARY KEY AUTOINCREMENT", "BIGSERIAL PRIMARY KEY"
+        )
+        usage_schema = usage_schema.replace(
+            "INTEGER PRIMARY KEY AUTOINCREMENT", "BIGSERIAL PRIMARY KEY"
+        ).replace("user_id INTEGER NOT NULL", "user_id BIGINT NOT NULL")
+
     with _connect() as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email TEXT NOT NULL UNIQUE,
-                password_salt TEXT NOT NULL,
-                password_hash TEXT NOT NULL,
-                plan TEXT NOT NULL DEFAULT 'free',
-                subscription_status TEXT NOT NULL DEFAULT 'inactive',
-                stripe_customer_id TEXT UNIQUE,
-                stripe_subscription_id TEXT UNIQUE,
-                created_at INTEGER NOT NULL
-            )
-            """
-        )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS simulation_usage (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL REFERENCES users(id),
-                job_id TEXT NOT NULL UNIQUE,
-                created_at INTEGER NOT NULL,
-                status TEXT NOT NULL DEFAULT 'started'
-            )
-            """
-        )
+        conn.execute(users_schema)
+        conn.execute(usage_schema)
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_sim_usage_user_time "
             "ON simulation_usage(user_id, created_at, status)"
@@ -108,18 +160,16 @@ def init_db() -> None:
             )
             """
         )
-        # Compatibilidade temporária com o formulário de senha compartilhada.
-        # Essa conta não pode comprar plano nem representar uma assinatura individual.
+        # Conta legada somente para compatibilidade; ela não pode assinar.
         conn.execute(
             """
-            INSERT OR IGNORE INTO users
+            INSERT INTO users
                 (email, password_salt, password_hash, plan, subscription_status, created_at)
             VALUES (?, 'legacy', 'legacy', 'free', 'inactive', ?)
+            ON CONFLICT (email) DO NOTHING
             """,
             (LEGACY_EMAIL, int(time.time())),
         )
-
-
 def _public_user(row: sqlite3.Row | dict | None) -> dict[str, Any] | None:
     if row is None:
         return None
@@ -163,9 +213,16 @@ def _password_digest(password: str, salt_hex: str) -> str:
     ).hex()
 
 
+def _is_unique_violation(error: Exception) -> bool:
+    return (
+        isinstance(error, sqlite3.IntegrityError)
+        or getattr(error, "sqlstate", None) == "23505"
+    )
+
+
 def create_user(email: str, password: str) -> dict[str, Any]:
     normalized = (email or "").strip().lower()
-    if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", normalized) or len(normalized) > 254:
+    if not re.fullmatch(r"[^\\s@]+@[^\\s@]+\\.[^\\s@]+", normalized) or len(normalized) > 254:
         raise ValueError("Informe um e-mail válido.")
     if normalized == LEGACY_EMAIL:
         raise ValueError("Esse e-mail não pode ser usado.")
@@ -175,24 +232,28 @@ def create_user(email: str, password: str) -> dict[str, Any]:
         raise ValueError("A senha excede o tamanho permitido.")
     salt = secrets.token_hex(16)
     digest = _password_digest(password, salt)
+    insert_sql = """
+        INSERT INTO users (email, password_salt, password_hash, plan, subscription_status, created_at)
+        VALUES (?, ?, ?, 'free', 'inactive', ?)
+    """
+    values = (normalized, salt, digest, int(time.time()))
     try:
         with _connect() as conn:
-            cursor = conn.execute(
-                """
-                INSERT INTO users (email, password_salt, password_hash, plan, subscription_status, created_at)
-                VALUES (?, ?, ?, 'free', 'inactive', ?)
-                """,
-                (normalized, salt, digest, int(time.time())),
-            )
-            user_id = cursor.lastrowid
-    except sqlite3.IntegrityError as exc:
-        raise EmailAlreadyExists("Já existe uma conta com esse e-mail.") from exc
+            if _using_postgres():
+                user_id = conn.execute(
+                    insert_sql + " RETURNING id", values
+                ).fetchone()["id"]
+            else:
+                cursor = conn.execute(insert_sql, values)
+                user_id = cursor.lastrowid
+    except Exception as exc:
+        if _is_unique_violation(exc):
+            raise EmailAlreadyExists("Já existe uma conta com esse e-mail.") from exc
+        raise
     user = get_user(user_id)
     if not user:
         raise RuntimeError("Não foi possível recuperar a conta recém-criada.")
     return user
-
-
 def verify_user(email: str, password: str) -> dict[str, Any] | None:
     normalized = (email or "").strip().lower()
     with _connect() as conn:
@@ -274,8 +335,11 @@ def reserve_simulation(user_id: int | str, job_id: str) -> dict[str, Any]:
         raise ValueError("É necessário entrar em uma conta para simular.") from exc
     now = int(time.time())
     with _connect() as conn:
-        conn.execute("BEGIN IMMEDIATE")
-        user = conn.execute("SELECT * FROM users WHERE id = ?", (normalized_id,)).fetchone()
+        conn.execute("BEGIN" if _using_postgres() else "BEGIN IMMEDIATE")
+        select_user_sql = "SELECT * FROM users WHERE id = ?" + (
+            " FOR UPDATE" if _using_postgres() else ""
+        )
+        user = conn.execute(select_user_sql, (normalized_id,)).fetchone()
         if user is None:
             raise ValueError("Conta não encontrada.")
         plan = _effective_plan(user)
@@ -323,14 +387,20 @@ def billing_is_configured() -> bool:
         "STRIPE_PRICE_DEEPLATINUM",
         "STRIPE_PRICE_DEEPHARMAX",
         "DEEPHARMA_PUBLIC_URL",
-        "DEEPHARMA_DB_PATH",
     )
-    # Cobrança exige confirmação explícita de armazenamento realmente persistente.
-    # Chaves live também exigem uma segunda confirmação explícita.
+    storage_configured = bool(
+        _database_url() or os.environ.get("DEEPHARMA_DB_PATH", "").strip()
+    )
+    # Chaves live exigem uma confirmação separada; armazenamento durável
+    # também precisa ser confirmado explicitamente pelo responsável do deploy.
     if secret.startswith("sk_live_") and not allow_live_billing:
         return False
-    return enabled and durable_storage_ack and all(os.environ.get(name, "").strip() for name in required)
-
+    return (
+        enabled
+        and durable_storage_ack
+        and storage_configured
+        and all(os.environ.get(name, "").strip() for name in required)
+    )
 
 def _stripe_request(path: str, fields: dict[str, str]) -> dict[str, Any]:
     secret = os.environ.get("STRIPE_SECRET_KEY", "").strip()
@@ -549,8 +619,16 @@ def process_stripe_webhook(payload: bytes, signature_header: str) -> bool:
 
     now = int(time.time())
     with _connect() as conn:
-        conn.execute("BEGIN IMMEDIATE")
-        if conn.execute("SELECT 1 FROM stripe_webhook_events WHERE event_id = ?", (event_id,)).fetchone():
+        conn.execute("BEGIN" if _using_postgres() else "BEGIN IMMEDIATE")
+        inserted_event = conn.execute(
+            """
+            INSERT INTO stripe_webhook_events(event_id, processed_at)
+            VALUES (?, ?)
+            ON CONFLICT (event_id) DO NOTHING
+            """,
+            (event_id, now),
+        )
+        if inserted_event.rowcount == 0:
             return False
 
         if event_type == "checkout.session.completed":
@@ -641,8 +719,4 @@ def process_stripe_webhook(payload: bytes, signature_header: str) -> bool:
                     (customer,),
                 )
 
-        conn.execute(
-            "INSERT INTO stripe_webhook_events(event_id, processed_at) VALUES (?, ?)",
-            (event_id, now),
-        )
     return True
