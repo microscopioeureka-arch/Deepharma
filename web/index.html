@@ -12,7 +12,7 @@
 
   <!-- ===== PAINEL FIXO: visualizador 3D + status ===== -->
   <aside id="painel-fixo">
-    <h1> Simulador Molecular</h1>
+    <h1>🧬 Simulador Molecular</h1>
     <a id="btn-sair" href="/logout">Sair</a>
     <div id="visor-container">
       <model-viewer id="visor-3d" camera-controls auto-rotate
@@ -41,12 +41,13 @@
       <p>PDB descreve estruturas macromoleculares, não certifica genomas completos.
       Importar composição do UniProt não preserva a ordem da sequência original.</p>
       <p id="qualidade-execucao" role="status">Cada execução gera um relatório de integridade e rastreabilidade.</p>
-      <p id="uso-mensal" class="ajuda" role="status">Uso mensal: consultando cota...</p>
+      <p id="uso-mensal" role="status" aria-live="polite">Consultando o plano e o uso de simulações...</p>
+      <button id="btn-gerenciar-assinatura" type="button" hidden>Gerenciar assinatura</button>
     </section>
 
     <!-- ── PROTEÍNA ── -->
     <section class="cartao">
-      <h2> Criar proteína</h2>
+      <h2>🔬 Criar proteína</h2>
       <p class="ajuda">O simulador gera a sequência de aminoácidos, dobra a cadeia usando
       forças físicas (eletrostática, hidrofóbica, Van der Waals) e exibe o modelo 3D.
       <b>Vermelho</b> = resíduo hidrofóbico · <b>Verde</b> = hidrofílico.</p>
@@ -72,7 +73,7 @@
         A ordem é gerada pelo modelo: composição igual não significa a mesma proteína, nem preserva a sequência do UniProt.</p>
         <div class="bloco-busca-real">
           <input type="text" id="busca-proteina-termo" placeholder="ex.: human insulin, lysozyme, spike protein..." />
-          <button class="btn-sec" id="btn-buscar-proteina"> Buscar proteína real (UniProt)</button>
+          <button class="btn-sec" id="btn-buscar-proteina">🌐 Buscar proteína real (UniProt)</button>
         </div>
         <p id="busca-proteina-status" class="desc-preset"></p>
         <div id="resultados-proteina" class="resultados-busca" style="display:none;"></div>
@@ -92,7 +93,7 @@
 
     <!-- ── AMBIENTE ── -->
     <section class="cartao">
-      <h2> Ambiente de dobramento</h2>
+      <h2>🌡️ Ambiente de dobramento</h2>
       <p class="ajuda">O ambiente altera os pesos das forças físicas — por exemplo,
       a membrana lipídica favorece resíduos hidrofóbicos no núcleo da proteína.</p>
       <select id="select-ambiente"><option>Carregando...</option></select>
@@ -100,7 +101,7 @@
 
     <!-- ── CRITÉRIO ENERGÉTICO + RESPOSTA ── -->
     <section class="cartao">
-      <h2> Critério energético e tipo de resposta</h2>
+      <h2>⚡ Critério energético e tipo de resposta</h2>
       <label class="linha-checkbox">
         <input type="checkbox" id="usar-limite-energetico" />
         Exigir limite energético para aceitar a formação da proteína
@@ -130,7 +131,7 @@
 
     <!-- ── ALVOS ── -->
     <section class="cartao">
-      <h2> Alvos para docking (opcional)</h2>
+      <h2>🦠 Alvos para docking (opcional)</h2>
       <p class="ajuda">A simulação testa se a sua proteína consegue se encaixar
       (docking) no receptor de superfície viral.</p>
 
@@ -171,13 +172,13 @@
           placeholder="ex.: AUGCAUGCAUGCAUGC... (mín. 3 bases)"></textarea>
         <div class="bloco-busca-real">
           <input type="text" id="busca-virus-termo" placeholder="ex.: monkeypox virus, E. coli plasmid, NC_045512.2..." />
-          <button class="btn-sec" id="btn-buscar-virus"> Buscar sequência real (NCBI)</button>
+          <button class="btn-sec" id="btn-buscar-virus">🌐 Buscar sequência real (NCBI)</button>
         </div>
         <p id="busca-virus-status" class="desc-preset"></p>
         <div id="resultados-virus" class="resultados-busca" style="display:none;"></div>
         <div class="bloco-salvar">
-          <button class="btn-sec" id="btn-salvar-seq"> Salvar sequência</button>
-          <button class="btn-sec" id="btn-ver-salvas"> Minhas sequências</button>
+          <button class="btn-sec" id="btn-salvar-seq">💾 Salvar sequência</button>
+          <button class="btn-sec" id="btn-ver-salvas">📂 Minhas sequências</button>
         </div>
         <div id="sequencias-salvas" style="display:none;"></div>
       </div>
@@ -210,7 +211,7 @@
             placeholder="ex.: ATGCATGCATGCATGC... (mín. 3 bases)"></textarea>
           <div class="bloco-busca-real">
             <input type="text" id="busca-bacteria-termo" placeholder="ex.: Escherichia coli, Staphylococcus aureus plasmid..." />
-            <button class="btn-sec" id="btn-buscar-bacteria"> Buscar genoma real (NCBI)</button>
+            <button class="btn-sec" id="btn-buscar-bacteria">🌐 Buscar genoma real (NCBI)</button>
           </div>
           <p id="busca-bacteria-status" class="desc-preset"></p>
           <div id="resultados-bacteria" class="resultados-busca" style="display:none;"></div>
@@ -221,7 +222,7 @@
 
       <label class="linha-checkbox">
         <input type="checkbox" id="prever-mutacao" />
-         Prever mutações no(s) vírus (variante mutante da espícula)
+        🧬 Prever mutações no(s) vírus (variante mutante da espícula)
       </label>
       <p class="ajuda" style="margin-left:22px;">Sorteia mutações pontuais na proteína de
       espícula de cada vírus, mostra ONDE elas caem no modelo 3D (destacado em amarelo) e
@@ -236,7 +237,7 @@
 
     <!-- ── FÁRMACOS ── -->
     <section class="cartao">
-      <h2> Testar fármacos no docking (opcional)</h2>
+      <h2>💊 Testar fármacos no docking (opcional)</h2>
       <p class="ajuda">A estratégia acima organiza a resposta didática. Para incluir ligantes
       reais no ranking — especialmente em um coquetel — marque esta opção e selecione os
       compostos abaixo. A lista não comprova que um composto trate uma doença.</p>
@@ -251,14 +252,14 @@
 
     <!-- ── OPÇÕES ── -->
     <section class="cartao">
-      <h2> Opções</h2>
+      <h2>⚙️ Opções</h2>
       <label class="linha-checkbox">
         <input type="checkbox" id="modo-rapido" checked />
         <span><b>Modo rápido</b> — simulação termina em segundos/poucos minutos (recomendado)</span>
       </label>
       <label class="linha-checkbox">
         <input type="checkbox" id="usar-imagem-referencia" />
-        <span> <b>Comparar e ajustar com referência científica</b>
+        <span>🖼️ <b>Comparar e ajustar com referência científica</b>
         (busca uma micrografia filtrada no Wikimedia Commons, rejeitando pinturas,
         diagramas e ilustrações. Usa a cor, proporção e pistas de forma para ajustar
         o modelo procedural e mostra a imagem escolhida nos resultados. Não reconstrói
