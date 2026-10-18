@@ -13,3 +13,22 @@ services:
         generateValue: true
       - key: COOKIE_SECURE
         value: "1"
+      # Billing remains disabled until persistent storage and Stripe are configured.
+      - key: DEEPHARMA_DB_PATH
+        sync: false
+      - key: ENABLE_BILLING
+        value: "false"
+      - key: DEEPHARMA_STORAGE_DURABLE
+        value: "false"
+      - key: ALLOW_LIVE_BILLING
+        value: "false"
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_DEEPLATINUM
+        sync: false
+      - key: STRIPE_PRICE_DEEPHARMAX
+        sync: false
+      - key: DEEPHARMA_PUBLIC_URL
+        sync: false
