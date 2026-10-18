@@ -14,6 +14,10 @@ services:
       - key: COOKIE_SECURE
         value: "1"
       # Billing remains disabled until persistent storage and Stripe are configured.
+      # Prefer a durable PostgreSQL database for production account/subscription data.
+      - key: DATABASE_URL
+        sync: false
+      # SQLite fallback is for local development or a service with a persistent disk.
       - key: DEEPHARMA_DB_PATH
         sync: false
       - key: ENABLE_BILLING
